@@ -105,4 +105,5 @@ pre_operations =
 post_operations =
 # includes/ globals and JS identifiers used inside ${...} need a value that parses, e.g.:
 helpers = array<string>['placeholder']
+keys = 'key'
 # cumulativeSum = 0 as placeholder_col

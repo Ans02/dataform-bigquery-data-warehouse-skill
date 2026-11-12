@@ -23,7 +23,7 @@ l1_crm_account as (
 , l2_masterdata_dim_customer as (
   select *
   from ${ref({schema: 'l2_masterdata', name: 'dim_customer'})}
-  where customer_id != to_hex(md5('na'))
+  where customer_id != ${keys.unknown()}
 )
 
 , matched as (
@@ -37,13 +37,9 @@ l1_crm_account as (
 
 , final as (
   select
-    to_hex(md5(concat(
-      coalesce(account_id, to_hex(md5('na')))
-      , '|'
-      , coalesce(customer_id, to_hex(md5('na')))
-    )))                                                       as crm_erp_customer_id
-    , coalesce(account_id, to_hex(md5('na')))                 as account_id
-    , coalesce(customer_id, to_hex(md5('na')))                as customer_id
+    ${keys.composite("account_id", "customer_id")}            as crm_erp_customer_id
+    , coalesce(account_id, ${keys.unknown()})                 as account_id
+    , coalesce(customer_id, ${keys.unknown()})                as customer_id
     , case
       when account_id is null then 'erp only'
       when customer_id is null then 'crm only'

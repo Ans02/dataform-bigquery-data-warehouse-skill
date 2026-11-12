@@ -8,9 +8,9 @@ config {
 
 select
   accountid
-  , coalesce(to_hex(md5(cast(accountid as string))), to_hex(md5('nd'))) as account_id
+  , ${keys.surrogate("accountid")}  as account_id
   , name
   , erp_customer_number
   , statecode
-  , cast(modifiedon as timestamp)                                       as modifiedon
+  , cast(modifiedon as timestamp)   as modifiedon
 from ${ref({schema: 'declaration_crm', name: 'account_pq'})}

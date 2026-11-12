@@ -35,6 +35,7 @@ In medallion-architecture terms, declarations and L1 are roughly bronze, L2 is s
 - Builds machine-to-machine contracts (names and types the target system dictates, its constraints mirrored as assertions, table functions) and reports for people (thin scoped views, refresh heartbeats).
 - Asks before guessing. When the repository and the data don't settle a question (which unit owns a model, what a field means, a business rule, a target's field names), Claude asks with a recommendation instead of inventing an answer, and keeps working on everything else in the meantime.
 - Keeps the repository glossary (`docs/glossary.md`) current. Claude reads it before naming and modeling, updates it in the same change as the code, and checks it before every commit. A commit hook blocks Claude's commits that change models without touching the glossary, unless the message says `Glossary: unchanged`.
+- Scores a warehouse or a single model against Kimball's dimensional modeling. There are 16 weighted criteria (grain, conformed dimensions, surrogate keys, unknown members, fact types and additivity, SCDs, bridges and more), graded A to D. A read-only scanner computes the mechanical criteria and generates the bus matrix from the code.
 - Verifies a change with whole-table reconciliation, not spot checks.
 - Reviews models and pull requests against a checklist.
 - Bootstraps a new repository from templates that compile out of the box.
@@ -107,6 +108,7 @@ The skill folder follows the Agent Skills format, and its frontmatter uses only 
 - "Map CRM accounts to ERP customers; unmatched ones should stay visible."
 - "Why does `uniqueKey` fail on `dim_site` since yesterday's change?"
 - "Bootstrap a new Dataform repository for project `acme-dwh`."
+- "Score our warehouse against Kimball and tell me the three changes that would raise the grade most."
 
 ## Contents
 
@@ -121,8 +123,10 @@ skills/dataform-bigquery-warehouse/
   SKILL.md                  architecture, conventions, workflows, glossary rule, hard-won rules
   scripts/
     glossary-gate.sh        the commit check (bash and git only)
+    kimball_scan.py         read-only Kimball scanner and bus-matrix generator (Python 3, standard library)
   references/
     glossary.md             the repository glossary: structure, what to update when, pre-commit check
+    kimball-scorecard.md    Kimball scoring: 16 repository and 15 model criteria, weights, grades A–D
     layers.md               what each layer may and may not do
     naming.md               schemas, tables, columns, CTEs, tags
     keys-and-sentinels.md   MD5 keys, na/nd, kinds of sentinel, scoped default members
@@ -166,6 +170,14 @@ Standard GoogleSQL: `union all strict corresponding`, `qualify`, `to_hex(md5(...
 ### What does the glossary commit hook do?
 
 Every warehouse repository keeps a glossary at `docs/glossary.md`: business terms, codes, measures and every model. When Claude runs `git commit` and the commit changes files under `definitions/` or `includes/` without the glossary, the hook blocks the commit and tells Claude to update the glossary first. A commit that genuinely doesn't affect the glossary goes through with the trailer `Glossary: unchanged`. The hook needs only bash and git, and it does nothing in repositories without a glossary.
+
+### How does the Kimball score work?
+
+Each criterion scores 0, 1 or 2 and has a weight: 3 for critical, 2 for important, 1 for good practice. The score is the weighted percentage of the maximum, graded A (90 or more), B (75–89), C (60–74) or D (below 60). A critical criterion at 0 (an undeclared grain, unenforced grain, non-conformed dimensions, or null foreign keys) caps the grade at C. The script `kimball_scan.py` computes the mechanical criteria and the bus matrix, and Claude scores the rest by sampling models and citing file and line. The result lists the improvements ranked by the points they would add. Run the scanner on its own with:
+
+```bash
+python3 skills/dataform-bigquery-warehouse/scripts/kimball_scan.py path/to/your/dataform/repo
+```
 
 ### Does it contain company data?
 

@@ -6,13 +6,13 @@ config {
 }
 
 -- Every invoice should resolve to a real customer. Unresolved invoices still flow through
--- (customer_id = md5('na')), so totals stay complete, but more than 1% in a month means the
--- customer feed or the key hashing broke. Returns the offending months; fix in l1_erp.
+-- (customer_id = the unknown key), so totals stay complete, but more than 1% in a month means the
+-- customer feed or the key computation broke. Returns the offending months; fix in l1_erp.
 
 select
   date_trunc(document_dt, month)             as month_dt
-  , countif(customer_id = to_hex(md5('na'))) as unassigned_qt
+  , countif(customer_id = ${keys.unknown()}) as unassigned_qt
   , count(*)                                 as invoice_qt
 from ${ref({schema: 'l2_sales', name: 'fct_invoice'})}
 group by month_dt
-having countif(customer_id = to_hex(md5('na'))) > 0.01 * count(*)
+having countif(customer_id = ${keys.unknown()}) > 0.01 * count(*)

@@ -24,7 +24,7 @@ l2_masterdata_dim_customer as (
   select *
   from ${ref({schema: 'l2_masterdata', name: 'dim_customer'})}
   -- the sentinel row is a warehouse concept; target programs never see it
-  where customer_id != to_hex(md5('na'))
+  where customer_id != ${keys.unknown()}
 )
 
 , final as (

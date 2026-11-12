@@ -23,4 +23,4 @@ l3r_sales_dim_customer as (  -- noqa: ST03
 
 select
   current_date()        as refresh_dt
-  , current_timestamp() as refresh_ts
+  , current_timestamp() as refresh_time_dt

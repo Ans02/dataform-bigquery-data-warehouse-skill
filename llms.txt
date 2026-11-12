@@ -1,6 +1,6 @@
 # Dataform BigQuery Data Warehouse Skill
 
-> A Claude Code skill (Agent Skill and Claude Code plugin) that teaches AI coding agents to design, build and review layered data warehouses on Google BigQuery with Google Dataform (SQLX). It covers the layer architecture (declarations, L1 source models, L2 schemas per business unit, L3P tables for programs, L3R views for people), naming conventions, MD5 surrogate keys, sentinel rows, dimensional modeling patterns, data-quality assertions, verification queries, a glossary that stays current through a commit hook, and project templates. MIT license.
+> A Claude Code skill (Agent Skill and Claude Code plugin) that teaches AI coding agents to design, build and review layered data warehouses on Google BigQuery with Google Dataform (SQLX). It covers the layer architecture (declarations, L1 source models, L2 schemas per business unit, L3P tables for programs, L3R views for people), naming conventions, MD5 surrogate keys, sentinel rows, dimensional modeling patterns, data-quality assertions, verification queries, a Kimball scorecard with a scanner that generates the bus matrix, a glossary that stays current through a commit hook, and project templates. MIT license.
 
 Install in Claude Code with `/plugin marketplace add Ans02/dataform-bigquery-data-warehouse-skill`, then `/plugin install dataform-bigquery-warehouse@dataform-bigquery-data-warehouse-skill`. As a plain skill, copy `skills/dataform-bigquery-warehouse/` to `~/.claude/skills/`.
 
@@ -19,6 +19,7 @@ Install in Claude Code with `/plugin marketplace add Ans02/dataform-bigquery-dat
 - [glossary.md](https://raw.githubusercontent.com/Ans02/dataform-bigquery-data-warehouse-skill/main/skills/dataform-bigquery-warehouse/references/glossary.md): the repository glossary: structure, which change updates which section, the pre-commit check
 - [tooling-and-ops.md](https://raw.githubusercontent.com/Ans02/dataform-bigquery-data-warehouse-skill/main/skills/dataform-bigquery-warehouse/references/tooling-and-ops.md): Dataform CLI, sqlfluff for SQLX, CI, service accounts and IAM, scheduling, documentation
 - [review-checklist.md](https://raw.githubusercontent.com/Ans02/dataform-bigquery-data-warehouse-skill/main/skills/dataform-bigquery-warehouse/references/review-checklist.md): checklist for reviewing a Dataform model or pull request
+- [kimball-scorecard.md](https://raw.githubusercontent.com/Ans02/dataform-bigquery-data-warehouse-skill/main/skills/dataform-bigquery-warehouse/references/kimball-scorecard.md): Kimball dimensional-modeling scorecard: 16 repository and 15 model criteria, weights, grades A–D, critical gate, report template
 
 ## Templates and hooks
 
@@ -26,6 +27,7 @@ Install in Claude Code with `/plugin marketplace add Ans02/dataform-bigquery-dat
 - [docs/glossary.md template](https://raw.githubusercontent.com/Ans02/dataform-bigquery-data-warehouse-skill/main/skills/dataform-bigquery-warehouse/assets/templates/docs/glossary.md): glossary skeleton with 10 sections
 - [glossary-gate.sh](https://raw.githubusercontent.com/Ans02/dataform-bigquery-data-warehouse-skill/main/skills/dataform-bigquery-warehouse/scripts/glossary-gate.sh): PreToolUse hook script that blocks commits that change models without the glossary
 - [hooks.json](https://raw.githubusercontent.com/Ans02/dataform-bigquery-data-warehouse-skill/main/hooks/hooks.json): the plugin's hook registration
+- [kimball_scan.py](https://raw.githubusercontent.com/Ans02/dataform-bigquery-data-warehouse-skill/main/skills/dataform-bigquery-warehouse/scripts/kimball_scan.py): read-only scanner that scores the mechanical Kimball criteria of a Dataform repository and generates its bus matrix
 
 ## Optional
 

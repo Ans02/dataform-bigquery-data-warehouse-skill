@@ -29,7 +29,7 @@ l1_erp_invoice as (
     , invoice.document_number                                as document_nr
     , invoice.document_date                                  as document_dt
     -- an unknown customer maps to the sentinel row instead of dropping the invoice
-    , coalesce(dim_customer.customer_id, to_hex(md5('na')))  as customer_id
+    , coalesce(dim_customer.customer_id, ${keys.unknown()})  as customer_id
     , coalesce(invoice.document_type = 'CREDIT_NOTE', false) as credit_note_fl
     , invoice.net_amount                                     as net_amount_vl
     , invoice.vat_amount                                     as vat_amount_vl

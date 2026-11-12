@@ -129,7 +129,7 @@ Rules:
 
    select
      current_date()        as refresh_dt
-     , current_timestamp() as refresh_ts
+     , current_timestamp() as refresh_time_dt
    ```
 
    The CTEs are never selected from, so BigQuery doesn't scan those tables. The `ref`s exist only to create the dependencies.

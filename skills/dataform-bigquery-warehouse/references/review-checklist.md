@@ -1,6 +1,6 @@
 # Review checklist
 
-Report each finding with its severity, `file:line`, a concrete failure (this input → this wrong output) and the fix.
+Report each finding with its severity, `file:line`, a concrete failure (this input → this wrong output) and the fix. If the user wants a score or a grade rather than a list of findings, use the model criteria of kimball-scorecard.md.
 
 - **High**: wrong numbers, lost or duplicated rows, a broken L3P contract, nondeterministic keys.
 - **Medium**: layer or dependency violations, a grain without an assertion, fragile joins.

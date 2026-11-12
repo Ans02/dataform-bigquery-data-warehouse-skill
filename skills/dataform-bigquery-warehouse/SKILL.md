@@ -1,6 +1,6 @@
 ---
 name: dataform-bigquery-warehouse
-description: Design, build, extend and review a layered BigQuery warehouse in Google Dataform (SQLX) - declarations, L1 source models, L2 schemas per business unit of the company, L3P presentation tables for machine-to-machine targets (apps, APIs, CRM, reverse ETL) and L3R reporting views for people (BI dashboards). Covers schema, table and column naming, MD5 surrogate keys, "not assigned" sentinel rows, bridge (rel_) and KPI tables, snapshot history, target contracts, assertions, verification, sqlfluff and CI. Keeps the repository glossary (docs/glossary.md) current on every change and commit. Use when writing or reviewing Dataform/SQLX models, adding a source system or business unit, choosing view vs table vs incremental, exposing data to an application or a dashboard, debugging fan-out, duplicate keys or cyclic references, or bootstrapping a new Dataform repository.
+description: Design, build, extend and review a layered BigQuery warehouse in Google Dataform (SQLX) - declarations, L1 source models, L2 schemas per business unit of the company, L3P presentation tables for machine-to-machine targets (apps, APIs, CRM, reverse ETL) and L3R reporting views for people (BI dashboards). Covers schema, table and column naming, MD5 surrogate keys, "not assigned" sentinel rows, bridge (rel_) and KPI tables, snapshot history, target contracts, assertions, verification, sqlfluff and CI. Keeps the repository glossary (docs/glossary.md) current on every change and commit, and scores a warehouse or model against Kimball dimensional modeling. Use when writing or reviewing Dataform/SQLX models, adding a source system or business unit, choosing view vs table vs incremental, exposing data to an application or a dashboard, debugging fan-out, duplicate keys or cyclic references, or bootstrapping a new Dataform repository.
 license: MIT
 metadata:
   version: "1.0.0"
@@ -188,6 +188,14 @@ Create `l3r_<audience>` (management, a business unit's team, a regulator) with t
 
 Work through [references/review-checklist.md](references/review-checklist.md). Report each finding with its severity, `file:line`, a concrete failure scenario and the fix.
 
+### Score against Kimball
+
+To score the warehouse, or one model, against Kimball's dimensional modeling, follow [references/kimball-scorecard.md](references/kimball-scorecard.md):
+
+1. Run `python3 "${CLAUDE_SKILL_DIR}/scripts/kimball_scan.py" <repo>`. It's read-only and needs nothing beyond Python 3. It scores the mechanical criteria and generates the bus matrix from the code.
+2. Confirm the flagged results, then score the review criteria by sampling facts and dimensions, citing `file:line`.
+3. Report the percentage, the grade (A–D, with critical criteria able to cap it at C), the evidence, and the improvements ranked by the points they would gain.
+
 ### Bootstrap a new repository
 
 1. Copy [assets/templates/](assets/templates/) into the new repo, including the dotfiles. It contains a compiling example from declaration to L3, plus `.sqlfluff`, CI and a CLAUDE.md skeleton.
@@ -240,4 +248,5 @@ For tooling and operations, see [references/tooling-and-ops.md](references/tooli
 | [references/tooling-and-ops.md](references/tooling-and-ops.md) | CLI, sqlfluff, CI, service accounts and IAM, scheduling, documentation |
 | [references/review-checklist.md](references/review-checklist.md) | Reviewing a model or a pull request |
 | [references/glossary.md](references/glossary.md) | Reading or updating `docs/glossary.md`: its structure, which change updates which section, the pre-commit check |
+| [references/kimball-scorecard.md](references/kimball-scorecard.md) | Scoring the warehouse or a model against Kimball: criteria, weights, grades, the scan script, the report template |
 | [assets/templates/](assets/templates/) | Bootstrapping a repo, or starting a new model |

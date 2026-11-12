@@ -35,7 +35,7 @@ l1_erp_customer as (
   union all strict corresponding
 
   select
-    to_hex(md5('na'))                 as customer_id
+    ${keys.unknown()}                 as customer_id
     , null                            as source_customer_id
     , 'na'                            as customer_cd
     , 'Not Assigned'                  as customer_ds
