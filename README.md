@@ -34,7 +34,7 @@ In medallion-architecture terms, declarations and L1 are roughly bronze, L2 is s
 - Applies known-good patterns: cross-system bridges that keep their misses, validity windows, change capture of snapshot feeds, reconstructed history, peer-group banding without cycles, weighted allocation.
 - Builds machine-to-machine contracts (names and types the target system dictates, its constraints mirrored as assertions, table functions) and reports for people (thin scoped views, refresh heartbeats).
 - Asks before guessing. When the repository and the data don't settle a question (which unit owns a model, what a field means, a business rule, a target's field names), Claude asks with a recommendation instead of inventing an answer, and keeps working on everything else in the meantime.
-- Keeps the repository glossary (`docs/glossary.md`) current. Claude reads it before naming and modeling, updates it in the same change as the code, and checks it before every commit. A commit hook blocks Claude's commits that change models without touching the glossary, unless the message says `Glossary: unchanged`.
+- Keeps the repository glossary (`docs/glossary.md`), Gold-layer data dictionary (`docs/data-dictionary.md`) and warehouse manifest (`docs/manifest.md`) current. Claude reviews all three before every commit and updates the docs in the same change whenever their contents are affected. A commit hook blocks Claude's model-changing commits without the glossary, unless the message says `Glossary: unchanged`.
 - Scores a warehouse or a single model against Kimball's dimensional modeling. There are 16 weighted criteria (grain, conformed dimensions, surrogate keys, unknown members, fact types and additivity, SCDs, bridges and more), graded A to D. A read-only scanner computes the mechanical criteria and generates the bus matrix from the code.
 - Verifies a change with whole-table reconciliation, not spot checks.
 - Reviews models and pull requests against a checklist.
@@ -136,7 +136,8 @@ skills/dataform-bigquery-warehouse/
     tooling-and-ops.md      CLI, sqlfluff, CI, IAM, scheduling, docs
     review-checklist.md
   assets/templates/         a small Dataform project that compiles: declaration → L1 → L2 → L3,
-                            docs/glossary.md, .sqlfluff, CI workflow, CLAUDE.md skeleton
+                            docs/glossary.md, data-dictionary.md, manifest.md, .sqlfluff,
+                            CI workflow, CLAUDE.md skeleton
 ```
 
 ## Adapting it
@@ -181,6 +182,8 @@ Standard GoogleSQL: `union all strict corresponding`, `qualify`, `md5` / `sha256
 ### What does the glossary commit hook do?
 
 Every warehouse repository keeps a glossary at `docs/glossary.md`: business terms, codes, measures and every model. When Claude runs `git commit` and the commit changes files under `definitions/` or `includes/` without the glossary, the hook blocks the commit and tells Claude to update the glossary first. A commit that genuinely doesn't affect the glossary goes through with the trailer `Glossary: unchanged`. The hook needs only bash and git, and it does nothing in repositories without a glossary.
+
+The skill also maintains `docs/data-dictionary.md` for Gold-layer outputs and `docs/manifest.md` for the model inventory and direct lineage. Claude checks both before every commit and updates them in the same change when the staged changes affect their contents. The hook currently enforces the glossary check only.
 
 ### How does the Kimball score work?
 

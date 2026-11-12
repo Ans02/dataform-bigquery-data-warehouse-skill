@@ -1,6 +1,6 @@
 ---
 name: dataform-bigquery-warehouse
-description: Design, build, extend and review a layered BigQuery warehouse in Google Dataform (SQLX) - declarations, L1 source models, L2 schemas per business unit of the company, L3P presentation tables for machine-to-machine targets (apps, APIs, CRM, reverse ETL) and L3R reporting views for people (BI dashboards). Covers schema, table and column naming, surrogate keys chosen for the system (MD5, FARM_FINGERPRINT, SHA-256 or natural keys), "not assigned" sentinel rows, bridge (rel_) and KPI tables, snapshot history, target contracts, assertions, verification, sqlfluff and CI. Keeps the repository glossary (docs/glossary.md) current on every change and commit, and scores a warehouse or model against Kimball dimensional modeling. Use when writing or reviewing Dataform/SQLX models, adding a source system or business unit, choosing view vs table vs incremental, exposing data to an application or a dashboard, debugging fan-out, duplicate keys or cyclic references, or bootstrapping a new Dataform repository.
+description: Design, build, extend and review a layered BigQuery warehouse in Google Dataform (SQLX) - declarations, L1 source models, L2 schemas per business unit of the company, L3P presentation tables for machine-to-machine targets (apps, APIs, CRM, reverse ETL) and L3R reporting views for people (BI dashboards). Covers schema, table and column naming, surrogate keys chosen for the system (MD5, FARM_FINGERPRINT, SHA-256 or natural keys), "not assigned" sentinel rows, bridge (rel_) and KPI tables, snapshot history, target contracts, assertions, verification, sqlfluff and CI. Keeps the repository glossary, Gold-layer data dictionary and warehouse manifest current on every change and checks them before every commit. Scores a warehouse or model against Kimball dimensional modeling. Use when writing or reviewing Dataform/SQLX models, adding a source system or business unit, choosing view vs table vs incremental, exposing data to an application or a dashboard, debugging fan-out, duplicate keys or cyclic references, or bootstrapping a new Dataform repository.
 license: MIT
 metadata:
   version: "1.0.0"
@@ -46,6 +46,14 @@ Every repository keeps one glossary at `docs/glossary.md`. It covers the layers,
 - **No glossary yet?** Offer to create one from [assets/templates/docs/glossary.md](assets/templates/docs/glossary.md), filled in from the existing models.
 
 The plugin ships a commit hook (`hooks/hooks.json`, script `scripts/glossary-gate.sh`) that enforces the commit check. It blocks Claude's `git commit` when files under `definitions/` or `includes/` change without `docs/glossary.md`, until the glossary is staged or the message carries `Glossary: unchanged`.
+
+### Data dictionary and Manifest
+
+Every repository also keeps `docs/data-dictionary.md` and `docs/manifest.md`. If either is missing, create it from [assets/templates/docs/data-dictionary.md](assets/templates/docs/data-dictionary.md) or [assets/templates/docs/manifest.md](assets/templates/docs/manifest.md), populated from the actual Dataform models; don't leave the template placeholders in place.
+
+- The **data dictionary** documents every L3P and L3R output model and column: model grain and purpose, column names and types, business descriptions and synonyms, plus verified examples, allowed values or constraints where applicable. Keep it aligned with the models' Dataform descriptions. Never guess meanings or values, and never include sensitive real-world values.
+- The **Manifest** is the warehouse inventory and direct-lineage index. List every Dataform model with its layer, schema, name, materialization, grain, purpose and direct upstream `ref()` dependencies; record the L3P target or L3R audience where applicable.
+- **Before every commit**, review the staged changes against both documents. Update and stage either document in the same change whenever its contents are affected; if a change does not affect a document, leave it unchanged. Keep both current after model additions, removals, renames, schema or materialization changes, grain or description changes, column changes, and dependency changes.
 
 ## Architecture
 
@@ -220,7 +228,7 @@ To score the warehouse, or one model, against Kimball's dimensional modeling, fo
 4. Choose the key strategy for this system in `includes/keys.js` (references/keys-and-sentinels.md, "Choosing a key strategy"). If you don't know where the keys travel or which BI tool reads them, ask.
 5. Run `npm install --save-exact @dataform/core`, which pins the current core version in `package.json`.
 6. Run `dataform compile`.
-7. Fill in `docs/glossary.md` for the new project, and replace the example rows.
+7. Fill in `docs/glossary.md`, `docs/data-dictionary.md` and `docs/manifest.md` for the new project using the templates, and replace all example rows.
 
 For tooling and operations, see [references/tooling-and-ops.md](references/tooling-and-ops.md).
 

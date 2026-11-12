@@ -67,6 +67,12 @@ Raw sources → declarations → L1 → L2 (business units) → L3P (machine to 
 - Read it before naming a column, decoding a code or adding a model.
 - Update it in the same change as the code, and check it before every commit. If nothing in a commit belongs in it, add the trailer `Glossary: unchanged` to the commit message.
 
+## Data dictionary and Manifest
+
+- `docs/data-dictionary.md` documents every L3P/L3R output model and column, including grain, purpose, types, descriptions, synonyms and verified values or constraints.
+- `docs/manifest.md` inventories every Dataform model and its direct upstream `ref()` dependencies.
+- Review both against the staged diff before every commit; update and stage them in the same change whenever their contents are affected.
+
 ## Commands
 
 ```bash

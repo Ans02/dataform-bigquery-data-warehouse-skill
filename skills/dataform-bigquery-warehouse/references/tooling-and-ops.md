@@ -88,6 +88,7 @@ The build's service account needs `dataform.compilationResults.create`; the smal
 
 - Keep a `CLAUDE.md` at the repo root (template in `assets/templates/CLAUDE.template.md`) covering the layers, the map of business units, targets and audiences, the names target systems impose, key design decisions, source semantics, the glossary, the commands, and any do-not-touch areas. Keep it current: it's what new engineers and agents read first.
 - Keep `docs/glossary.md` as the one glossary of the repository, updated in the same change as the code and checked before every commit (glossary.md). The plugin's commit hook enforces that check for Claude's commits.
+- Keep `docs/data-dictionary.md` for every L3P/L3R output model and column, and `docs/manifest.md` for every model and its direct lineage. Review both against the staged diff before every commit, and update them in the same change when their contents are affected (glossary.md).
 - Use `docs/<business_unit>/` for calculation references: the lineage, the scope, the rules with worked examples, and a section on differences between the spec and the SQL. Write one whenever a model implements a business rule owned by someone outside the team (commissions, fees, payroll cost composition).
-- A model's header comment carries its grain and the reasons behind it. The config `description:` is optional; use it when a catalog shows it to users.
+- A model's header comment carries its grain and the reasons behind it. Gold-layer models document table purpose and grain with `description:` and column metadata with `columns`; use catalog descriptions for L2 models when useful.
 - Keep work-in-progress code managed by hand outside `definitions/`, so it never compiles, and mark it do-not-modify in CLAUDE.md.

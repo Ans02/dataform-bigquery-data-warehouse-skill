@@ -12,6 +12,7 @@ The glossary is only useful if it is current. **A change isn't done until the gl
 4. Before every commit
 5. Writing entries
 6. Full reviews
+7. Data dictionary and Manifest
 
 ## 1. Structure
 
@@ -96,3 +97,12 @@ Per-change updates drift over time. Every few months, or after a large refactor,
 - the pitfalls in §10 still exist.
 
 Record the date and branch at the top ("Last full review: <date>, against `main`").
+
+## 7. Data dictionary and Manifest
+
+The glossary is complemented by two repository documents:
+
+- `docs/data-dictionary.md` describes every L3P and L3R output model and column, including the model's grain and purpose, column types, business descriptions, synonyms, and verified examples, allowed values or constraints where applicable. Keep it aligned with the Dataform descriptions and column metadata.
+- `docs/manifest.md` is the inventory and direct-lineage index for every Dataform model. Record its layer, schema, name, materialization, grain, purpose and direct upstream `ref()` dependencies; include the L3P target or L3R audience where applicable.
+
+Create either file from its template in `assets/templates/docs/` if it is missing, and populate it from the actual models. Before every commit, compare the staged diff with both documents. Update and stage a document in the same change when its contents are affected; leave it unchanged when the change does not affect it. Never guess metadata or include sensitive real-world example values.

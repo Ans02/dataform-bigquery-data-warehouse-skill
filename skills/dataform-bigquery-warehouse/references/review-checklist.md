@@ -81,6 +81,13 @@ Report each finding with its severity, `file:line`, a concrete failure (this inp
 - [ ] Removed models, columns and codes are removed from the glossary too, and fixed pitfalls are removed from §10.
 - [ ] New column names reuse the English terms from the glossary (§4) instead of introducing synonyms.
 
+## Data dictionary and Manifest
+
+- [ ] Before committing, the staged diff was checked against `docs/data-dictionary.md` and `docs/manifest.md`.
+- [ ] The data dictionary reflects affected L3P/L3R models, columns, grains, descriptions, synonyms and verified values or constraints.
+- [ ] The Manifest reflects affected model inventory, materialization, grain, purpose and direct `ref()` dependencies.
+- [ ] Both documents are staged when their contents change; neither is changed just to create a commit diff when its contents are unaffected.
+
 ## Style
 
 - [ ] The model matches its neighbours: lowercase, leading commas, 2-space indent, aligned aliases, a `final` CTE.
