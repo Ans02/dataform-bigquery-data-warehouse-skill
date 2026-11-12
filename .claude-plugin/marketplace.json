@@ -1,0 +1,16 @@
+{
+  "name": "dataform-bigquery-data-warehouse-skill",
+  "description": "Claude Code skill for layered data warehouses on Google BigQuery with Google Dataform (SQLX).",
+  "owner": {
+    "name": "Ans02"
+  },
+  "plugins": [
+    {
+      "name": "dataform-bigquery-warehouse",
+      "source": "./",
+      "description": "Design, build and review layered BigQuery data warehouses in Google Dataform (SQLX): architecture, naming, keys, modeling patterns, assertions, glossary and templates.",
+      "category": "data-engineering",
+      "tags": ["dataform", "bigquery", "sqlx", "data-warehouse", "data-modeling"]
+    }
+  ]
+}

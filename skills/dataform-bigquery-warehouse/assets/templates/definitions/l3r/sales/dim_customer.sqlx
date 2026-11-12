@@ -1,0 +1,23 @@
+config {
+  type: "view",
+  schema: "l3r_sales",
+  name: "dim_customer"
+}
+
+-- For people: the sales dashboard. Re-exposes the conformed dimension in the report's dataset,
+-- so the BI model connects to one dataset. The 'na' row stays: the report shows unassigned
+-- invoices as "Not Assigned".
+
+with
+l2_masterdata_dim_customer as (
+  select *
+  from ${ref({schema: 'l2_masterdata', name: 'dim_customer'})}
+)
+
+, final as (
+  select *
+  from l2_masterdata_dim_customer
+)
+
+select *
+from final

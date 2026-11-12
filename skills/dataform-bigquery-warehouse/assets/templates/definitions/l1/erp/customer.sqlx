@@ -1,0 +1,21 @@
+config {
+  type: "table",
+  schema: "l1_erp",
+  name: "customer"
+}
+
+-- Source-aligned copy of the ERP customer table: casts and hashed keys only, source names kept.
+-- Materialized as a table because the raw table is external (Parquet on GCS).
+
+select
+  id
+  , coalesce(to_hex(md5(cast(id as string))), to_hex(md5('nd'))) as customer_id
+  , cast(number as string)                                       as number
+  , name
+  , status
+  , country_code
+  , lower(email)                                                 as email
+  , cast(entry_date as date)                                     as entry_date
+  , cast(exit_date as date)                                      as exit_date
+  , cast(last_update_time as timestamp)                          as last_update_time
+from ${ref({schema: 'declaration_erp', name: 'customer_pq'})}

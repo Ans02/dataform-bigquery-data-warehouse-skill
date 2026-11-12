@@ -1,0 +1,26 @@
+{
+  "name": "dataform-bigquery-warehouse",
+  "version": "1.0.0",
+  "description": "Claude Code skill for designing, building and reviewing layered data warehouses on Google BigQuery with Google Dataform (SQLX): layer architecture, naming conventions, surrogate keys, sentinel rows, dimensional modeling patterns, contracts for apps and reports, assertions, verification, a self-maintaining glossary, and project templates.",
+  "author": {
+    "name": "Ans02"
+  },
+  "homepage": "https://github.com/Ans02/dataform-bigquery-data-warehouse-skill",
+  "repository": "https://github.com/Ans02/dataform-bigquery-data-warehouse-skill",
+  "license": "MIT",
+  "keywords": [
+    "dataform",
+    "google-dataform",
+    "bigquery",
+    "sqlx",
+    "data-warehouse",
+    "data-modeling",
+    "dimensional-modeling",
+    "analytics-engineering",
+    "data-engineering",
+    "elt",
+    "gcp",
+    "agent-skills",
+    "claude-code-skill"
+  ]
+}

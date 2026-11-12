@@ -1,0 +1,26 @@
+config {
+  type: "incremental",
+  schema: "l3r_sales",
+  name: "fct_last_refresh"
+}
+
+-- Refresh heartbeat. It references every model of this schema, so it runs only after all of
+-- them succeeded, and it appends one row per run (no uniqueKey). Dashboards show
+-- max(refresh_dt) as "data as of". Add a CTE here for every model added to l3r_sales.
+-- The CTEs are never selected from, so BigQuery doesn't scan those tables; the refs only create
+-- the dependencies.
+
+with
+l3r_sales_dim_customer as (  -- noqa: ST03
+  select *
+  from ${ref({schema: 'l3r_sales', name: 'dim_customer'})}
+)
+
+, l3r_sales_fct_invoice as (  -- noqa: ST03
+  select *
+  from ${ref({schema: 'l3r_sales', name: 'fct_invoice'})}
+)
+
+select
+  current_date()        as refresh_dt
+  , current_timestamp() as refresh_ts

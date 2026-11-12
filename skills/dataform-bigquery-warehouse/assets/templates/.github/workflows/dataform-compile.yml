@@ -1,0 +1,43 @@
+name: dataform
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # Compiling needs no GCP credentials: it validates SQLX, JS and the dependency graph.
+      # The CLI version follows the @dataform/core version pinned in package.json.
+      - name: Compile
+        run: |
+          npm install --no-audit --no-fund
+          core_version=$(node -p "require('./package.json').dependencies['@dataform/core']")
+          npx --yes "@dataform/cli@${core_version}" compile
+
+      - uses: actions/setup-python@v5
+        if: github.event_name == 'pull_request'
+        with:
+          python-version: "3.12"
+
+      # Lint only the SQLX files this pull request adds or changes, so legacy files don't block it.
+      - name: Lint changed SQLX
+        if: github.event_name == 'pull_request'
+        run: |
+          pip install --quiet "sqlfluff==3.4.0"
+          files=$(git diff --name-only --diff-filter=AM "origin/${{ github.base_ref }}...HEAD" -- '*.sqlx')
+          if [ -n "$files" ]; then
+            sqlfluff lint $files
+          else
+            echo "No SQLX changes to lint"
+          fi

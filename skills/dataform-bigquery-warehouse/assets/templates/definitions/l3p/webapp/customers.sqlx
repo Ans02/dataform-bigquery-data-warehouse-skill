@@ -1,0 +1,44 @@
+config {
+  type: "table",
+  schema: "l3p_webapp",
+  name: "customers",
+  tags: ["l3p_webapp"],
+  assertions: {
+    uniqueKey: ["id"],
+    nonNull: ["id", "name"],
+    // mirrors the CHECK constraints of the web app database: fail here, not in the sync job
+    rowConditions: [
+      "name != ''",
+      "exit_date is null or exit_date >= entry_date"
+    ]
+  }
+}
+
+-- Machine to machine: the web app's sync job reads this table for its customer list.
+-- Current state only (replaced each run). Column names and types are dictated by the app
+-- (CLAUDE.md, L3 schemas, "fixed field names"): don't rename them to warehouse conventions,
+-- and agree renames or removals with the app's owner first.
+
+with
+l2_masterdata_dim_customer as (
+  select *
+  from ${ref({schema: 'l2_masterdata', name: 'dim_customer'})}
+  -- the sentinel row is a warehouse concept; target programs never see it
+  where customer_id != to_hex(md5('na'))
+)
+
+, final as (
+  select
+    safe_cast(customer_cd as int64) as id
+    , customer_ds                   as name
+    , country_cd                    as country
+    , entry_dt                      as entry_date
+    , exit_dt                       as exit_date
+    , active_fl                     as is_active
+    , customer_id                   as customer_hash
+    , update_dt                     as updated_at
+  from l2_masterdata_dim_customer
+)
+
+select *
+from final

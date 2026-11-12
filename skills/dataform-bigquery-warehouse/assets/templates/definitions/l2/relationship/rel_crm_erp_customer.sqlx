@@ -1,0 +1,60 @@
+config {
+  type: "view",
+  schema: "l2_relationship",
+  name: "rel_crm_erp_customer",
+  assertions: {
+    uniqueKey: ["crm_erp_customer_id"]
+  }
+}
+
+-- Grain: one row per matched CRM account / ERP customer pair, plus one row per unmatched account
+-- and per unmatched customer. The only link between the systems is the ERP customer number typed
+-- into the CRM account, so misses are kept and flagged (match_fl = false) instead of dropped:
+-- data-quality reports list them for manual mapping.
+
+with
+l1_crm_account as (
+  select *
+  from ${ref({schema: 'l1_crm', name: 'account'})}
+  -- 0 = active in the CRM; filtered here, not after the full outer join below
+  where statecode = 0
+)
+
+, l2_masterdata_dim_customer as (
+  select *
+  from ${ref({schema: 'l2_masterdata', name: 'dim_customer'})}
+  where customer_id != to_hex(md5('na'))
+)
+
+, matched as (
+  select
+    account.account_id
+    , dim_customer.customer_id
+  from l1_crm_account as account
+  full outer join l2_masterdata_dim_customer as dim_customer
+    on trim(account.erp_customer_number) = dim_customer.customer_cd
+)
+
+, final as (
+  select
+    to_hex(md5(concat(
+      coalesce(account_id, to_hex(md5('na')))
+      , '|'
+      , coalesce(customer_id, to_hex(md5('na')))
+    )))                                                       as crm_erp_customer_id
+    , coalesce(account_id, to_hex(md5('na')))                 as account_id
+    , coalesce(customer_id, to_hex(md5('na')))                as customer_id
+    , case
+      when account_id is null then 'erp only'
+      when customer_id is null then 'crm only'
+      else 'matched'
+    end                                                       as match_status_cd
+    , account_id is not null and customer_id is not null      as match_fl
+    -- several CRM accounts carrying the same ERP number: a duplicate to clean up in the CRM
+    , customer_id is not null
+    and count(account_id) over (partition by customer_id) > 1 as duplicate_match_fl
+  from matched
+)
+
+select *
+from final

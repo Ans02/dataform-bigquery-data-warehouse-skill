@@ -1,0 +1,22 @@
+config {
+  type: "view",
+  schema: "l3r_sales",
+  name: "fct_invoice"
+}
+
+-- Report scope: the last 10 full years plus the current year.
+
+with
+l2_sales_fct_invoice as (
+  select *
+  from ${ref({schema: 'l2_sales', name: 'fct_invoice'})}
+  where extract(year from document_dt) >= extract(year from current_date()) - 10
+)
+
+, final as (
+  select *
+  from l2_sales_fct_invoice
+)
+
+select *
+from final

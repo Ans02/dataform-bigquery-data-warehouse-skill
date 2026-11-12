@@ -1,0 +1,16 @@
+{
+  "description": "Glossary gate: blocks Claude's git commit in a Dataform repository when definitions/ or includes/ change without docs/glossary.md, unless the message carries 'Glossary: unchanged'.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/skills/dataform-bigquery-warehouse/scripts/glossary-gate.sh\""
+          }
+        ]
+      }
+    ]
+  }
+}

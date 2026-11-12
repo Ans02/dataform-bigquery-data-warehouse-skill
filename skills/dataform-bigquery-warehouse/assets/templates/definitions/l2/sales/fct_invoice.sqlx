@@ -1,0 +1,44 @@
+config {
+  type: "view",
+  schema: "l2_sales",
+  name: "fct_invoice",
+  assertions: {
+    uniqueKey: ["invoice_id"],
+    nonNull: ["customer_id", "document_dt"]
+  }
+}
+
+-- Grain: one row per ERP invoice document. Credit notes are included with negative amounts
+-- and credit_note_fl = true; reports decide whether to net them.
+
+with
+l1_erp_invoice as (
+  select *
+  from ${ref({schema: 'l1_erp', name: 'invoice'})}
+)
+
+, l2_masterdata_dim_customer as (
+  select *
+  from ${ref({schema: 'l2_masterdata', name: 'dim_customer'})}
+)
+
+, final as (
+  select
+    invoice.invoice_id
+    , invoice.id                                             as source_invoice_id
+    , invoice.document_number                                as document_nr
+    , invoice.document_date                                  as document_dt
+    -- an unknown customer maps to the sentinel row instead of dropping the invoice
+    , coalesce(dim_customer.customer_id, to_hex(md5('na')))  as customer_id
+    , coalesce(invoice.document_type = 'CREDIT_NOTE', false) as credit_note_fl
+    , invoice.net_amount                                     as net_amount_vl
+    , invoice.vat_amount                                     as vat_amount_vl
+    , invoice.gross_amount                                   as gross_amount_vl
+    , invoice.open_amount                                    as open_amount_vl
+  from l1_erp_invoice as invoice
+  left outer join l2_masterdata_dim_customer as dim_customer
+    on invoice.customer_id = dim_customer.customer_id
+)
+
+select *
+from final

@@ -1,0 +1,33 @@
+# Dataform BigQuery Data Warehouse Skill
+
+> A Claude Code skill (Agent Skill and Claude Code plugin) that teaches AI coding agents to design, build and review layered data warehouses on Google BigQuery with Google Dataform (SQLX). It covers the layer architecture (declarations, L1 source models, L2 schemas per business unit, L3P tables for programs, L3R views for people), naming conventions, MD5 surrogate keys, sentinel rows, dimensional modeling patterns, data-quality assertions, verification queries, a glossary that stays current through a commit hook, and project templates. MIT license.
+
+Install in Claude Code with `/plugin marketplace add Ans02/dataform-bigquery-data-warehouse-skill`, then `/plugin install dataform-bigquery-warehouse@dataform-bigquery-data-warehouse-skill`. As a plain skill, copy `skills/dataform-bigquery-warehouse/` to `~/.claude/skills/`.
+
+## Skill
+
+- [SKILL.md](https://raw.githubusercontent.com/Ans02/dataform-bigquery-data-warehouse-skill/main/skills/dataform-bigquery-warehouse/SKILL.md): the entry point: architecture, dependency rules, conventions, model shape, workflows, materialization guide, the ask-before-guessing and glossary rules, hard-won rules
+
+## References
+
+- [layers.md](https://raw.githubusercontent.com/Ans02/dataform-bigquery-data-warehouse-skill/main/skills/dataform-bigquery-warehouse/references/layers.md): what each layer may and may not do; L2 by business unit; L3P (machine to machine) vs L3R (people)
+- [naming.md](https://raw.githubusercontent.com/Ans02/dataform-bigquery-data-warehouse-skill/main/skills/dataform-bigquery-warehouse/references/naming.md): schema, table, column suffix, CTE and tag conventions
+- [keys-and-sentinels.md](https://raw.githubusercontent.com/Ans02/dataform-bigquery-data-warehouse-skill/main/skills/dataform-bigquery-warehouse/references/keys-and-sentinels.md): MD5 surrogate keys, composite keys, the 'na' and 'nd' sentinels, the kinds of sentinel, scoped default members
+- [modeling-patterns.md](https://raw.githubusercontent.com/Ans02/dataform-bigquery-data-warehouse-skill/main/skills/dataform-bigquery-warehouse/references/modeling-patterns.md): 17 patterns: conformed dimensions, facts, multi-entity sources, identity bridges, validity windows, change capture of snapshots, reconstructed history, peer groups, weighted allocation, calendars, hierarchies, JS-generated SQL
+- [presentation-contracts.md](https://raw.githubusercontent.com/Ans02/dataform-bigquery-data-warehouse-skill/main/skills/dataform-bigquery-warehouse/references/presentation-contracts.md): L3P contracts for apps, CRM and sync jobs; L3R views for BI; table functions; refresh heartbeats
+- [quality-and-testing.md](https://raw.githubusercontent.com/Ans02/dataform-bigquery-data-warehouse-skill/main/skills/dataform-bigquery-warehouse/references/quality-and-testing.md): assertions, custom assertion models, verification and reconciliation queries
+- [glossary.md](https://raw.githubusercontent.com/Ans02/dataform-bigquery-data-warehouse-skill/main/skills/dataform-bigquery-warehouse/references/glossary.md): the repository glossary: structure, which change updates which section, the pre-commit check
+- [tooling-and-ops.md](https://raw.githubusercontent.com/Ans02/dataform-bigquery-data-warehouse-skill/main/skills/dataform-bigquery-warehouse/references/tooling-and-ops.md): Dataform CLI, sqlfluff for SQLX, CI, service accounts and IAM, scheduling, documentation
+- [review-checklist.md](https://raw.githubusercontent.com/Ans02/dataform-bigquery-data-warehouse-skill/main/skills/dataform-bigquery-warehouse/references/review-checklist.md): checklist for reviewing a Dataform model or pull request
+
+## Templates and hooks
+
+- [CLAUDE.template.md](https://raw.githubusercontent.com/Ans02/dataform-bigquery-data-warehouse-skill/main/skills/dataform-bigquery-warehouse/assets/templates/CLAUDE.template.md): CLAUDE.md skeleton for a Dataform repository
+- [docs/glossary.md template](https://raw.githubusercontent.com/Ans02/dataform-bigquery-data-warehouse-skill/main/skills/dataform-bigquery-warehouse/assets/templates/docs/glossary.md): glossary skeleton with 10 sections
+- [glossary-gate.sh](https://raw.githubusercontent.com/Ans02/dataform-bigquery-data-warehouse-skill/main/skills/dataform-bigquery-warehouse/scripts/glossary-gate.sh): PreToolUse hook script that blocks commits that change models without the glossary
+- [hooks.json](https://raw.githubusercontent.com/Ans02/dataform-bigquery-data-warehouse-skill/main/hooks/hooks.json): the plugin's hook registration
+
+## Optional
+
+- [README.md](https://raw.githubusercontent.com/Ans02/dataform-bigquery-data-warehouse-skill/main/README.md): overview, installation, example prompts, FAQ
+- [LICENSE](https://raw.githubusercontent.com/Ans02/dataform-bigquery-data-warehouse-skill/main/LICENSE): MIT

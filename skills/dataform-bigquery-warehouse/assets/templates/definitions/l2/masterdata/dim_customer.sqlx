@@ -1,0 +1,51 @@
+config {
+  type: "view",
+  schema: "l2_masterdata",
+  name: "dim_customer",
+  assertions: {
+    uniqueKey: ["customer_id"]
+  }
+}
+
+-- Grain: one row per ERP customer, plus one 'na' sentinel row.
+-- Conformed customer dimension: every business unit joins here instead of re-reading l1_erp.customer.
+
+with
+l1_erp_customer as (
+  select *
+  from ${ref({schema: 'l1_erp', name: 'customer'})}
+  -- test and training customers are listed, with the reason, in includes/constants.js
+  where coalesce(number, '') not in unnest(${helpers.stringArray(constants.excluded_customer_cds)})
+)
+
+, final as (
+  select
+    customer.customer_id
+    , customer.id                                   as source_customer_id
+    , customer.number                               as customer_cd
+    , customer.name                                 as customer_ds
+    , concat(customer.number, ' - ', customer.name) as customer_long_ds
+    , coalesce(customer.country_code, 'na')         as country_cd
+    , customer.entry_date                           as entry_dt
+    , customer.exit_date                            as exit_dt
+    , coalesce(customer.status = 'active', false)   as active_fl
+    , customer.last_update_time                     as update_dt
+  from l1_erp_customer as customer
+
+  union all strict corresponding
+
+  select
+    to_hex(md5('na'))                 as customer_id
+    , null                            as source_customer_id
+    , 'na'                            as customer_cd
+    , 'Not Assigned'                  as customer_ds
+    , 'na - Not Assigned'             as customer_long_ds
+    , 'na'                            as country_cd
+    , date '0001-01-01'               as entry_dt
+    , cast(null as date)              as exit_dt
+    , false                           as active_fl
+    , timestamp '1970-01-01 00:00:00' as update_dt
+)
+
+select *
+from final

@@ -1,0 +1,23 @@
+config {
+  type: "table",
+  schema: "l1_erp",
+  name: "invoice"
+}
+
+-- Source-aligned copy of the ERP invoice table. The foreign key is hashed exactly like the
+-- customer's primary key in l1_erp.customer, so L2 can join on customer_id directly.
+
+select
+  id
+  , coalesce(to_hex(md5(cast(id as string))), to_hex(md5('nd')))           as invoice_id
+  , coalesce(to_hex(md5(cast(customer_ref as string))), to_hex(md5('nd'))) as customer_id
+  , document_number
+  , cast(document_date as date)                                            as document_date
+  , document_type
+  , net_amount
+  , vat_amount
+  , gross_amount
+  , open_amount
+from ${ref({schema: 'declaration_erp', name: 'invoice_pq'})}
+-- invoices before the ERP migration were re-keyed and can't be reconciled: history starts in 2020
+where cast(document_date as date) >= date '2020-01-01'

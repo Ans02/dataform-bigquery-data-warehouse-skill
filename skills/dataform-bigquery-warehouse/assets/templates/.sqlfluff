@@ -1,0 +1,108 @@
+[sqlfluff]
+templater = placeholder
+dialect = bigquery
+output_line_length = 120
+sql_file_exts = .sql,.sqlx
+
+# EXCLUDED RULES
+# AL05 - Tables should not be aliased if that alias is not used.
+# AL07 - Avoid table aliases in from clauses and join conditions.
+# AM03 - Ambiguous ordering directions for columns in order by clause.
+# LT05 - Line is too long.
+# LT08 - Blank line after CTE closing bracket (blank lines between CTEs are optional here).
+# RF04 - Keywords used as identifiers: L1 keeps source column names and L3P keeps the names a
+#        target system imposes (name, number, status, ...), so neither layer may rename them.
+# ST04 - Nested CASE statements.
+# ST06 - Select wildcards then simple targets before calculations and aggregates.
+# ST07 - Prefer specifying join keys instead of using USING.
+exclude_rules = AL05, AL07, AM03, LT05, LT08, RF04, ST04, ST06, ST07
+
+[sqlfluff:indentation]
+indent_unit = space
+tab_space_size = 2
+indented_joins = False
+indented_ctes = False
+indented_using_on = True
+indented_on_contents = True
+indented_then = True
+indented_then_contents = True
+allow_implicit_indents = False
+template_blocks_indent = True
+skip_indentation_in = script_content
+trailing_comments = before
+ignore_comment_lines = False
+
+[sqlfluff:layout:type:where_clause]
+line_position = alone:strict
+
+[sqlfluff:layout:type:binary_operator]
+line_position = leading
+
+[sqlfluff:layout:type:comparison_operator]
+line_position = trailing
+
+[sqlfluff:layout:type:alias_expression]
+spacing_before = align
+align_within = select_clause
+align_scope = bracketed
+
+[sqlfluff:layout:type:comma]
+line_position = leading
+
+[sqlfluff:rules:capitalisation.keywords]
+capitalisation_policy = lower
+
+[sqlfluff:rules:capitalisation.literals]
+capitalisation_policy = lower
+
+[sqlfluff:rules:capitalisation.types]
+extended_capitalisation_policy = lower
+
+[sqlfluff:rules:capitalisation.identifiers]
+extended_capitalisation_policy = lower
+unquoted_identifiers_policy = all
+
+[sqlfluff:rules:capitalisation.functions]
+capitalisation_policy = lower
+extended_capitalisation_policy = lower
+
+[sqlfluff:rules:ambiguous.join]
+fully_qualify_join_types = outer
+
+[sqlfluff:rules:aliasing.length]
+min_alias_length = 5
+
+[sqlfluff:rules:aliasing.table]
+aliasing = explicit
+
+[sqlfluff:rules:aliasing.column]
+aliasing = explicit
+
+[sqlfluff:rules:convention.select_trailing_comma]
+select_clause_trailing_comma = forbid
+
+[sqlfluff:rules:references.special_chars]
+unquoted_identifiers_policy = all
+quoted_identifiers_policy = all
+allow_space_in_identifier = False
+additional_allowed_characters = ["", $]
+
+[sqlfluff:rules:layout.newlines]
+# one blank line separates the config block, header comment and CTEs; never two
+maximum_empty_lines_between_statements = 1
+maximum_empty_lines_inside_statements = 1
+
+[sqlfluff:templater:placeholder]
+# Removes config/js blocks and replaces every ${...} expression with a placeholder, so sqlfluff
+# can parse SQLX. The recursive group handles nested braces such as ${ref({schema: ..., name: ...})}.
+param_regex = (?s)\${\s*(?P<param_name>[\w_]+)(?P<rec>(?:[^{}]+|{(?&rec)})*+)}|(?P<param_name>config|js|pre_operations|post_operations)\s*{(?&rec)}
+ref = ref_table_placeholder
+self = self_table_placeholder
+when =
+config =
+js =
+pre_operations =
+post_operations =
+# includes/ globals and JS identifiers used inside ${...} need a value that parses, e.g.:
+helpers = array<string>['placeholder']
+# cumulativeSum = 0 as placeholder_col

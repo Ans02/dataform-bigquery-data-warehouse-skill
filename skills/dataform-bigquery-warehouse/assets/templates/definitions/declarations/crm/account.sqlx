@@ -1,0 +1,5 @@
+config {
+  type: "declaration",
+  schema: "declaration_crm",
+  name: "account_pq"
+}
