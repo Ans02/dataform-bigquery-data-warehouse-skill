@@ -49,7 +49,7 @@ js =
 pre_operations =
 ```
 
-The full file, with the house-style rules, is in `assets/templates/.sqlfluff`. If an identifier inside `${...}` must expand to valid SQL (a JS-generated column list, for example), add a placeholder value for it: `cumulativeSum = 0 as placeholder_col`.
+The full file, with the house-style rules, is in `assets/templates/.sqlfluff`. It excludes LT01 (spacing): sqlfluff checks alias alignment on the templated SQL, where every `${...}` call becomes one short placeholder, so select lists that call the keys helper can never pass. Align aliases by hand. If an identifier inside `${...}` must expand to valid SQL (a JS-generated column list, for example), add a placeholder value for it: `cumulativeSum = 0 as placeholder_col`.
 
 - Lint the changed files in CI, and fix legacy files when you touch them.
 - Don't run `dataform format`, or any formatter, across a repository whose style differs from the formatter's. It rewrites every file (keyword case, indentation) and buries the real change in a huge diff. It has also reformatted the whole project when given a single file.

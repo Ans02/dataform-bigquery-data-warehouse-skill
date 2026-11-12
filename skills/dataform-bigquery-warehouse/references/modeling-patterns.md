@@ -35,7 +35,7 @@ Each business entity gets one model in `l2_masterdata`. Build it from the system
 ## 2. Fact table
 
 - State the grain in the first comment line. Every column must depend on that grain.
-- Foreign keys: left join to the dimension and wrap the key in `coalesce(..., to_hex(md5('na')))`.
+- Foreign keys: left join to the dimension and wrap the key in `coalesce(..., ${keys.unknown()})`.
 - Measures use `_vl` and `_qt`. Keep signed amounts signed (credit notes negative) and add a flag (`credit_note_fl`) instead of filtering them out.
 - When the document date and the business date differ, keep both, and comment which one reports use. A credit note, for example, can carry the date of the invoice it corrects as `date_dt`.
 - Don't pre-aggregate in a `fct_` model. Aggregates are `kpi_` models.
@@ -48,9 +48,9 @@ Two legal entities run the same ERP in separate databases. The schemas are ident
 , invoices_entity_a as (
   select
     'entity_a'                                                       as source_company_ds
-    , to_hex(md5(concat('entity_a - ', cast(invoice.id as string)))) as invoice_id
+    , ${keys.composite("'entity_a'", "invoice.id")}                 as invoice_id
     , invoice.id                                                     as source_invoice_id
-    , coalesce(dim_customer.customer_id, to_hex(md5('na')))          as customer_id
+    , coalesce(dim_customer.customer_id, ${keys.unknown()})          as customer_id
     , invoice.gross_amount                                           as gross_amount_vl
   from l1_erp_invoice_entity_a as invoice
   left outer join l2_sales_dim_customer as dim_customer
@@ -88,12 +88,9 @@ Two systems describe the same entity, and the only link is a code someone typed 
 
 , final as (
   select
-    to_hex(md5(concat(
-      coalesce(account_id, to_hex(md5('na')))
-      , '|', coalesce(customer_id, to_hex(md5('na')))
-    )))                                                   as crm_erp_customer_id
-    , coalesce(account_id, to_hex(md5('na')))             as account_id
-    , coalesce(customer_id, to_hex(md5('na')))            as customer_id
+    ${keys.composite("account_id", "customer_id")}       as crm_erp_customer_id
+    , coalesce(account_id, ${keys.unknown()})             as account_id
+    , coalesce(customer_id, ${keys.unknown()})            as customer_id
     , case
       when account_id is null then 'erp only'
       when customer_id is null then 'crm only'
@@ -131,7 +128,7 @@ left outer join rel_channel_site as rel_latest
   on booking.channel_hotel_id = rel_latest.channel_hotel_id
   and rel_latest.latest_fl
 -- in the select list:
-, coalesce(rel_window.site_id, rel_latest.site_id, to_hex(md5('na'))) as site_id
+, coalesce(rel_window.site_id, rel_latest.site_id, ${keys.unknown()}) as site_id
 ```
 
 - Overlapping windows make the in-window join fan out. Add an assertion that the windows of one key never overlap, and make sure `latest_fl` is true for exactly one row per key.
@@ -232,7 +229,7 @@ Classify the lower level first, then roll it up with an explicit priority:
 - Cross join the population with the windows, then left join the measures. Every entity then appears once per window, with a 0 instead of a missing row.
 - Aggregate at the measure's own grain before joining finer data: sum invoices at invoice grain, not after joining the invoice lines.
 - Write status rules (`new`, `active`, `lost`, `inactive`) as a `case` in priority order, with a comment on each branch, and give each status a sort number for reports.
-- Exclude rows that would collapse into the sentinel (`where company_id != to_hex(md5('na'))`), and comment why.
+- Exclude rows that would collapse into the sentinel (`where company_id != ${keys.unknown()}`), and comment why.
 - A `kpi_` model is usually a `table`: it is read often, and its windows move only once a day.
 
 ## 9. Change capture of snapshot feeds
@@ -243,7 +240,7 @@ Some systems ship a full snapshot of a table every day (forecasts, availability,
 
 ```sql
 select
-  coalesce(to_hex(md5(cast(hotel_ref as string))), to_hex(md5('nd'))) as client_id
+  ${keys.surrogate("hotel_ref")}                                       as client_id
   , stay_date
   , category_code
   , parse_date('%Y%m%d', file_date)                                    as create_dt
@@ -319,7 +316,7 @@ from ${ref({schema: 'l1_pms', name: 'daily_snapshot_updates'})}
 
 - The incremental branch and the full-refresh branch must produce the same result. Test this once with `--full-refresh` and compare.
 - Use `is not distinct from` for key parts that can be NULL.
-- Hash only the measures. A hash that includes metadata such as the load time changes every day, and then every row gets stored.
+- Hash only the measures. `row_hash` detects changes and is never a key, so MD5 is fine here whatever the key strategy. A hash that includes metadata such as the load time changes every day, and then every row gets stored.
 - Bad early data (one source's snapshots before a known go-live date) is excluded in `_src`, with a comment.
 
 ## 10. Windowed full exports with deletions

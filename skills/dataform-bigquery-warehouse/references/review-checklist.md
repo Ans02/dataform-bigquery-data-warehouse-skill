@@ -26,10 +26,10 @@ Report each finding with its severity, `file:line`, a concrete failure (this inp
 
 ## Keys and sentinels
 
-- [ ] Keys are hashed with `to_hex(md5(cast(... as string)))`, with the `md5('nd')` null fallback in L1.
+- [ ] Keys follow the repository's one key strategy (`keys.surrogate` and `keys.composite`, or the repository's inline formula), computed once in L1, with the no-data fallback for NULL source keys. A new repository's strategy fits its system (keys-and-sentinels.md, "Choosing a key strategy").
 - [ ] Every part of a composite key is coalesced. Separators appear where parts could run together, and namespaces where id spaces overlap.
 - [ ] No `current_date()`, `current_timestamp()` or random value appears in a key or a sentinel row.
-- [ ] Every foreign key is coalesced to `md5('na')`.
+- [ ] Every foreign key is coalesced to the unknown key (`keys.unknown()`).
 - [ ] Each dimension has one sentinel row, built with `union all strict corresponding` or as a typed sentinel.
 - [ ] Every placeholder has the right kind (keys-and-sentinels.md, "Kinds of sentinel"). A source's catch-all inside a parent (such as sector `0` "Default") is a scoped default member with a parent-scoped key, not `md5('na')`. Facts fall back to the parent's default before `na`. Unmapped values aren't poured into an `'Other'` category.
 - [ ] L3P filters out `na` sentinels and keeps default members.

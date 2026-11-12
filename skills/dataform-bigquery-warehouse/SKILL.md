@@ -1,6 +1,6 @@
 ---
 name: dataform-bigquery-warehouse
-description: Design, build, extend and review a layered BigQuery warehouse in Google Dataform (SQLX) - declarations, L1 source models, L2 schemas per business unit of the company, L3P presentation tables for machine-to-machine targets (apps, APIs, CRM, reverse ETL) and L3R reporting views for people (BI dashboards). Covers schema, table and column naming, MD5 surrogate keys, "not assigned" sentinel rows, bridge (rel_) and KPI tables, snapshot history, target contracts, assertions, verification, sqlfluff and CI. Keeps the repository glossary (docs/glossary.md) current on every change and commit, and scores a warehouse or model against Kimball dimensional modeling. Use when writing or reviewing Dataform/SQLX models, adding a source system or business unit, choosing view vs table vs incremental, exposing data to an application or a dashboard, debugging fan-out, duplicate keys or cyclic references, or bootstrapping a new Dataform repository.
+description: Design, build, extend and review a layered BigQuery warehouse in Google Dataform (SQLX) - declarations, L1 source models, L2 schemas per business unit of the company, L3P presentation tables for machine-to-machine targets (apps, APIs, CRM, reverse ETL) and L3R reporting views for people (BI dashboards). Covers schema, table and column naming, surrogate keys chosen for the system (MD5, FARM_FINGERPRINT, SHA-256 or natural keys), "not assigned" sentinel rows, bridge (rel_) and KPI tables, snapshot history, target contracts, assertions, verification, sqlfluff and CI. Keeps the repository glossary (docs/glossary.md) current on every change and commit, and scores a warehouse or model against Kimball dimensional modeling. Use when writing or reviewing Dataform/SQLX models, adding a source system or business unit, choosing view vs table vs incremental, exposing data to an application or a dashboard, debugging fan-out, duplicate keys or cyclic references, or bootstrapping a new Dataform repository.
 license: MIT
 metadata:
   version: "1.0.0"
@@ -52,7 +52,7 @@ The plugin ships a commit hook (`hooks/hooks.json`, script `scripts/glossary-gat
 ```text
 raw tables (written by ELT jobs: Parquet/CSV on GCS, database extracts, API dumps)
 └─ declaration_<source>      type "declaration": read-only pointers, no SQL
-   └─ l1_<source>            one model per raw table: casts, hashed keys, source-local cleanup
+   └─ l1_<source>            one model per raw table: casts, surrogate keys, source-local cleanup
       └─ l2_<business_unit>  business logic, one schema per business unit of the company
          │                   (+ shared schemas: l2_masterdata, l2_relationship, l2_monitoring)
          ├─ l3p_<target>     machine to machine: one schema per target system (app, API, CRM, sync job)
@@ -90,16 +90,24 @@ For each layer in detail, see [references/layers.md](references/layers.md).
 ## Conventions at a glance
 
 - Table prefixes in L2 and L3R: `dim_` dimension, `fct_` fact, `rel_` bridge or mapping, `kpi_` pre-aggregated KPIs. L3P tables use the target's entity names (`customers`, `bookings`).
-- Column suffixes, required from L2 on: `_id` hashed key, `_cd` code, `_ds` description, `_dt` date or timestamp, `_fl` flag, `_nr` ordinal or sequence number, `_qt` quantity or count, `_vl` amount or value, `_pc` percentage.
+- Column suffixes, required from L2 on: `_id` surrogate key, `_cd` code, `_ds` description, `_dt` date or timestamp, `_fl` flag, `_nr` ordinal or sequence number, `_qt` quantity or count, `_vl` amount or value, `_pc` percentage.
 - Column names are English from L2 on. L1 keeps the source names. Names that a target system imposes in L3P are exempt; list them in CLAUDE.md.
-- Surrogate keys are hex MD5 strings, hashed once in L1:
+- **Surrogate keys follow one strategy per repository, chosen for the system.** Nothing forces MD5:
+  - `md5_hex` when keys leave BigQuery: apps store them, reverse ETL writes them back, or another database must compute them.
+  - `farm_fingerprint` (INT64) when keys stay in BigQuery and its BI tool, especially Power BI or Looker import models.
+  - `sha256_hex` when a policy bans MD5.
+  - `natural` keys only for small, single-source projects.
+
+  The strategy lives in `includes/keys.js`, and models call the helper, so the choice is one line. Keys are computed once in L1:
 
   ```sql
-  coalesce(to_hex(md5(cast(source_id as string))), to_hex(md5('nd'))) as customer_id
+  ${keys.surrogate("source_id")} as customer_id                              -- L1
+  coalesce(dim_customer.customer_id, ${keys.unknown()}) as customer_id       -- L2 lookup fallback
   ```
 
-- `to_hex(md5('na'))` means "not assigned": the lookup failed, or this is the sentinel row. `to_hex(md5('nd'))` means "no data": the source key was null.
-- Every dimension has one sentinel row keyed `md5('na')` with `'Not Assigned'` labels. Every foreign key in a fact is `coalesce(dim.x_id, to_hex(md5('na')))`, so a failed lookup never drops a fact. L3P filters out the sentinels before a target system sees them.
+  An existing repository keeps its strategy (often an inline `to_hex(md5(...))`), because changing it changes every key downstream. If you don't know where the keys travel or which BI tool reads them, ask before choosing.
+- `keys.unknown()` (`'na'`) means "not assigned": the lookup failed, or this is the sentinel row. `keys.noData()` (`'nd'`) means "no data": the source key was null.
+- Every dimension has one sentinel row keyed `keys.unknown()` with `'Not Assigned'` labels. Every foreign key in a fact is `coalesce(dim.x_id, ${keys.unknown()})`, so a failed lookup never drops a fact. L3P filters out the sentinels before a target system sees them.
 - Not every placeholder is that `na` row. A source system's own catch-all inside a parent, such as sector `0` "Default" of each company and year, is a **scoped default member**: it has a real parent-scoped key, it holds real amounts, facts fall back to it before `na`, and presentation keeps it. Catch-all categories (`'Other'`), scope sentinels in L3R, numeric markers (`0` = not banded) and neutral weights are other kinds again. Before adding any placeholder, look up its kind in the comparison table.
 
 Details: [references/naming.md](references/naming.md) and [references/keys-and-sentinels.md](references/keys-and-sentinels.md), which includes the comparison of sentinel kinds.
@@ -134,7 +142,7 @@ l1_erp_invoice as (
 , final as (
   select
     invoice.invoice_id
-    , coalesce(dim_customer.customer_id, to_hex(md5('na'))) as customer_id
+    , coalesce(dim_customer.customer_id, ${keys.unknown()}) as customer_id
     , invoice.gross_amount                                   as gross_amount_vl
   from l1_erp_invoice as invoice
   left outer join l2_masterdata_dim_customer as dim_customer
@@ -151,12 +159,20 @@ from final
 - The file name equals the config `name`. The folder is `definitions/<layer>/<source | business_unit | target | audience>/`.
 - Style: lowercase keywords, leading commas, 2-space indent, explicit `as`, aligned aliases, `left outer join`.
 
+### Column Metadata Standards
+
+Document every table in the Gold layer (L3P and L3R) with its grain and purpose in the table `description`, and describe its columns with Dataform's `columns` config. The documented grain must agree with the model's grain comment and `uniqueKey` assertion.
+
+- **Grain definition:** State explicitly what one row represents, such as "One row per unique order line-item per day." This helps consumers choose correct groupings and avoid double-counting.
+- **Synonyms and aliases:** Include common business terms that differ from the column name in the column description. For example: `cust_id`: "Unique identifier for the customer. Synonyms: client_id, buyer_id, account_number."
+- **Value examples and constraints:** For categorical or constrained fields, include representative values or the allowed enum in the column description, such as `status_cd`: "Invoice status. Allowed values: ['active', 'pending', 'closed']." Use values verified from the source, model logic, or business owner; don't invent examples or allowed values.
+
 ## Workflows
 
 ### Add a source system
 
 1. Add one declaration per raw table in `definitions/declarations/<source>/`.
-2. Add one L1 model per declaration in `definitions/l1/<source>/`. Select the useful columns, cast types, hash the primary key and every foreign key into `_id` columns, and keep the source names. Put intentional cut-offs here with a comment, for example `where fiscal_year > 2022 -- earlier extracts are unreliable`. Add only cut-offs that someone has confirmed; never invent one.
+2. Add one L1 model per declaration in `definitions/l1/<source>/`. Select the useful columns, cast types, key the primary key and every foreign key into `_id` columns with `keys.surrogate`, and keep the source names. Put intentional cut-offs here with a comment, for example `where fiscal_year > 2022 -- earlier extracts are unreliable`. Add only cut-offs that someone has confirmed; never invent one.
 3. Choose the materialization. A snapshot feed (a full or windowed export every day) gets the change-capture stack from [references/modeling-patterns.md](references/modeling-patterns.md).
 4. Run `dataform compile`. The source reaches L2 only when a business unit's model needs it.
 5. Add the source to the glossary (§2 source systems), and any release cut-off to §6.
@@ -165,7 +181,7 @@ from final
 
 1. Pick the schema. A model goes to the business unit that owns the process behind the data. Entities shared by every unit (customer, site, calendar) go to `l2_masterdata`, and mappings between units go to `l2_relationship`. If CLAUDE.md doesn't say which unit owns the process, ask. Then pick the model type (`dim_`, `fct_`, `rel_` or `kpi_`) and write the grain comment before the SQL.
 2. Write the import CTEs, then the logic CTEs, then `final`.
-3. Keys: reuse the L1 hashes, coalesce every foreign key to `md5('na')`, and namespace keys when two sources share an id space.
+3. Keys: reuse the L1 keys, coalesce every foreign key to `keys.unknown()`, and namespace keys with `keys.composite` when two sources share an id space.
 4. Dimensions: append the sentinel row with `union all strict corresponding`.
 5. Declare `assertions: { uniqueKey: [...] }` on the grain.
 6. Verify the change before calling it done. Compile it. Compare the row count and the distinct key count with the driving source. Check every join for fan-out. Reconcile the totals against the source. Follow one known entity end to end. The queries are in [references/quality-and-testing.md](references/quality-and-testing.md).
@@ -201,9 +217,10 @@ To score the warehouse, or one model, against Kimball's dimensional modeling, fo
 1. Copy [assets/templates/](assets/templates/) into the new repo, including the dotfiles. It contains a compiling example from declaration to L3, plus `.sqlfluff`, CI and a CLAUDE.md skeleton.
 2. Rename `CLAUDE.template.md` to `CLAUDE.md`.
 3. Replace the placeholders: `your-gcp-project-id`, the `erp` and `crm` sources, the `sales` business unit, the `webapp` target and the `sales` audience.
-4. Run `npm install --save-exact @dataform/core`, which pins the current core version in `package.json`.
-5. Run `dataform compile`.
-6. Fill in `docs/glossary.md` for the new project, and replace the example rows.
+4. Choose the key strategy for this system in `includes/keys.js` (references/keys-and-sentinels.md, "Choosing a key strategy"). If you don't know where the keys travel or which BI tool reads them, ask.
+5. Run `npm install --save-exact @dataform/core`, which pins the current core version in `package.json`.
+6. Run `dataform compile`.
+7. Fill in `docs/glossary.md` for the new project, and replace the example rows.
 
 For tooling and operations, see [references/tooling-and-ops.md](references/tooling-and-ops.md).
 

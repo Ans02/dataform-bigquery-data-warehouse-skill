@@ -40,7 +40,7 @@ L1 models keep the raw table's name, minus loader suffixes. L3P models use the t
 
 | Suffix | Meaning | Type | Examples |
 | --- | --- | --- | --- |
-| `_id` | Surrogate or foreign key, hex MD5 | STRING | `customer_id`, `site_id` |
+| `_id` | Surrogate or foreign key, computed with the repository's key strategy (`includes/keys.js`) | STRING or INT64, depending on the strategy | `customer_id`, `site_id` |
 | `_cd` | Business code: ids shown to people, ISO codes, postal codes, phone numbers, category codes | STRING (INT64 only for truly numeric codes) | `customer_cd`, `country_cd`, `postal_cd` |
 | `_ds` | Description or label | STRING | `customer_ds`, `street_ds` |
 | `_long_ds` | Display label `code - description` | STRING | `customer_long_ds` |
@@ -57,7 +57,7 @@ Rules:
 - Choose one convention per concept and keep it repository-wide: `year_nr` or `year_cd`, not both. A column used as a join key across models has the same name and type everywhere.
 - Flags: choose BOOL or 0/1 per table and never mix the two within a table. Document INT64 flags, because `where latest_fl` fails on an INT64.
 - Percentages: say in a comment whether `_pc` runs from 0 to 1 or from 0 to 100.
-- Where users search by the raw source id, keep it in L2 next to the hash: `source_customer_id` (raw) beside `customer_id` (hash).
+- Where users search by the raw source id, keep it in L2 next to the surrogate key: `source_customer_id` (raw) beside `customer_id` (surrogate).
 - Store numeric-looking source ids as STRING when they are identifiers rather than quantities.
 
 ## Language

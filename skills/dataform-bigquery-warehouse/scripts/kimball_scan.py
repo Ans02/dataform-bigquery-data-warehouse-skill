@@ -28,8 +28,14 @@ SQL_TYPES = {
     "bignumeric", "decimal", "bigdecimal", "float64", "float", "bool", "boolean", "bytes", "date",
     "datetime", "time", "timestamp", "json", "geography", "interval", "array", "struct", "range",
 }
-NA_EXPR = r"md5\(\s*(?:cast\(\s*)?['\"]na['\"](?:\s+as\s+string\s*\))?\s*\)"
-SENTINEL_RE = re.compile(r"\bunion\b[\s\S]*?" + NA_EXPR + r"\s*\)?\s+as\s+\w+", re.I)
+# The unknown-member key in every key strategy: the keys helper, an inline md5/sha256/farm_fingerprint
+# of 'na' (optionally wrapped in to_hex), the INT64 convention -1, or the natural-key literal 'na'.
+UNKNOWN_KEY_EXPR = (
+    r"(?:\$\{\s*keys\.unknown\(\)\s*\}"
+    r"|(?:to_hex\(\s*)?(?:md5|sha256|farm_fingerprint)\(\s*(?:cast\(\s*)?['\"]na['\"](?:\s+as\s+string\s*\))?\s*\)\s*\)?"
+    r"|-1|'na')"
+)
+SENTINEL_RE = re.compile(r"\bunion\b[\s\S]*?" + UNKNOWN_KEY_EXPR + r"\s+as\s+\w*_id\b", re.I)
 TYPED_SENTINEL_RE = re.compile(r"\bjoin\s+\w+(?:\s+as\s+\w+)?\s+on\s+false\b", re.I)
 GRAIN_RE = re.compile(r"(--|//|/\*|description\s*:)[^\n]*\bgrain\b", re.I)
 REF_OBJ_RE = re.compile(r"ref\(\s*\{(.*?)\}\s*\)", re.S)

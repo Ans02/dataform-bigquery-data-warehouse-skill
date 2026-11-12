@@ -30,7 +30,7 @@ Rules:
 1. **One schema per target system**, named `l3p_<target>`. Never let two targets share a table, because their contracts drift independently.
 2. **The target's names win.** Alias to the target's field names and types in the final select only. List the fixed names per schema in CLAUDE.md under "do not rename". Everything else in the model follows the warehouse conventions.
 3. **Treat the schema as an API.** Adding a column is safe. Renaming or removing a column, or changing its type or meaning, needs the target owner's agreement and a coordinated release. Record the target's owner in CLAUDE.md.
-4. **Filter out sentinels** and other warehouse artifacts (`where customer_id != to_hex(md5('na'))`, `customer_cd != 'na'`). Scoped default members, such as a company's "Default" sector, hold real amounts and stay in (keys-and-sentinels.md).
+4. **Filter out sentinels** and other warehouse artifacts (`where customer_id != ${keys.unknown()}`, `customer_cd != 'na'`). Scoped default members, such as a company's "Default" sector, hold real amounts and stay in (keys-and-sentinels.md).
 5. **Cast to the target's types.** Use `safe_cast(customer_cd as int64) as id` when the app uses integer ids and `cast(x as timestamp)` when the API expects timestamps, and lowercase emails and URLs if the target compares them.
 6. **Mirror the target's constraints as assertions.** Copy NOT NULL constraints into `nonNull`, unique constraints into `uniqueKey`, and CHECK constraints into `rowConditions`, with each constraint's name in a comment. A bad row then fails the run in Dataform, before the sync job writes half a batch.
 

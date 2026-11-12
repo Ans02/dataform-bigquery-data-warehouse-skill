@@ -19,7 +19,7 @@ Raw sources → declarations → L1 → L2 (business units) → L3P (machine to 
 | Layer | Schema pattern | Purpose |
 | --- | --- | --- |
 | Declarations | `declaration_{source}` | Read-only references to raw tables |
-| L1 | `l1_{source}` | One model per raw table: casts, hashed keys, source names kept |
+| L1 | `l1_{source}` | One model per raw table: casts, surrogate keys, source names kept |
 | L2 | `l2_{business_unit}` | Business logic, one schema per business unit, plus shared schemas |
 | L3P | `l3p_{target}` | Tables read by a program: one schema per target system |
 | L3R | `l3r_{audience}` | Views read by people through BI: one schema per audience |
@@ -47,9 +47,9 @@ Raw sources → declarations → L1 → L2 (business units) → L3P (machine to 
 
 ## Keys and sentinels
 
-- Keys: `coalesce(to_hex(md5(cast(source_id as string))), to_hex(md5('nd')))`, hashed once in L1.
-- `md5('na')` means not assigned; `md5('nd')` means the source key was null.
-- Each dimension has one `'Not Assigned'` row keyed `md5('na')`. Facts coalesce their foreign keys to it. L3P filters it out; L3R shows it.
+- Key strategy: `<md5_hex | farm_fingerprint | sha256_hex | natural>`, set in `includes/keys.js`, because <why it fits this system, e.g. "apps store the keys" or "Power BI import models only">. Models call `keys.surrogate`, `keys.composite` and `keys.unknown()`. Changing the strategy changes every key downstream.
+- `keys.unknown()` means not assigned; `keys.noData()` means the source key was null.
+- Each dimension has one `'Not Assigned'` row keyed `keys.unknown()`. Facts coalesce their foreign keys to it. L3P filters it out; L3R shows it.
 - Scoped default members (the source's own catch-all per parent): <list them, e.g. "sector 0 'Default' per customer and year">. They have real keys, and presentation keeps them.
 
 ## Key design decisions

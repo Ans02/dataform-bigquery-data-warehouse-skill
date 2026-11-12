@@ -73,6 +73,8 @@ having count(*) > 1
 **Unassigned share:**
 
 ```sql
+-- in SQLX use ${keys.unknown()}; in the console, the literal of your strategy:
+-- to_hex(md5('na')), -1 or 'na'
 select countif(customer_id = to_hex(md5('na'))) / count(*) as unassigned_pc
 from l2_sales.fct_invoice
 ```

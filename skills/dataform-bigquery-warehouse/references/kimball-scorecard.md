@@ -54,7 +54,7 @@ The scope is the L2 models plus the L3R presentation views. L3P tables are machi
 | R3 | Conformed dimensions | Enterprise bus architecture: one dimension per entity, shared by every fact; shrunken dimensions keep the keys | 3 | No entity is modeled as independent dimensions in several schemas. Copies derived from `l2_masterdata` are fine | proposed |
 | R4 | Unknown-member rows | Default rows, so that fact foreign keys never need NULL | 2 | ≥ 90% of dimensions have a global `na` row. A scoped default member (such as sector 0 "Default") doesn't replace it: facts with an unknown parent still need `na` | auto |
 | R5 | Fact foreign keys never null | Every fact row joins to every dimension | 3 | In the sampled facts, every foreign key is coalesced to the unknown member, and a query shows no NULL keys | review |
-| R6 | Surrogate keys | Dimensions use meaningless surrogate keys; natural keys stay as attributes | 2 | Every sampled dimension has a hashed `_id` key and keeps its business key (`_cd`, `source_*_id`); facts carry only surrogate keys | review |
+| R6 | Surrogate keys | Dimensions use meaningless surrogate keys; natural keys stay as attributes | 2 | One key strategy across the repository, fitting the system. Every sampled dimension has a surrogate `_id` key and keeps its business key (`_cd`, `source_*_id`); facts carry only surrogate keys | review |
 | R7 | One conformed date dimension | A single date dimension; role-playing views for several dates | 2 | Exactly one calendar generates dates; fiscal and unit calendars are derived from it | auto |
 | R8 | Fact types and additivity | Transaction, periodic snapshot, accumulating snapshot or factless; additive, semi-additive and non-additive measures | 2 | Every sampled fact is a single type, stated in its header; semi- and non-additive measures (balances, ratios) are documented, and ratios are stored as numerator and denominator | review |
 | R9 | Aggregates on atomic facts | Aggregates complement the atomic grain; they never replace it | 2 | Every `kpi_` model is built from a `fct_` model | auto |
@@ -98,7 +98,7 @@ Critical for the gate: M1, M2, M3, M5, M8 and M10.
 | --- | --- |
 | Four-step design: business process, grain, dimensions, facts | The schema of the owning business unit, the grain comment, `dim_` and `fct_` models |
 | Bus architecture, conformed dimensions | The `l2_masterdata` hub; the scan's bus matrix |
-| Surrogate keys | MD5 hex `_id` keys: meaningless and stable, the role Kimball gives integer keys |
+| Surrogate keys | `_id` keys from one strategy per repository (`includes/keys.js`). `farm_fingerprint` gives Kimball's integer keys; `md5_hex` trades width for portability when keys leave BigQuery |
 | Unknown and default members | The `na` sentinel row; scoped default members (keys-and-sentinels.md) |
 | Bridge tables with weighting factors | `rel_` models with a `percent` weight and an assertion |
 | Aggregate fact tables | `kpi_` models |
@@ -109,7 +109,7 @@ Critical for the gate: M1, M2, M3, M5, M8 and M10.
 
 Where this playbook deliberately differs from Kimball, don't deduct points:
 
-- **Hashed keys instead of integers.** Kimball prefers integer surrogate keys for join performance. On BigQuery, string keys join well, and hashes need no key-lookup step.
+- **Hashed string keys are a valid choice.** Kimball prefers integer surrogate keys for join performance. `farm_fingerprint` gives INT64 keys on BigQuery, while `md5_hex` trades width for portability when keys leave BigQuery, and neither needs a key-lookup step. Score R6 on whether the strategy is consistent, meaningless and right for the system, not on the key type.
 - **History on demand.** Kimball builds type 2 history broadly. Here history is added where the business reports "as it was". Score R11 on whether the policy is declared and fits the business, not on how many type 2 dimensions exist.
 
 ## 6. Report template

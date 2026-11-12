@@ -9,7 +9,7 @@ It packages one opinionated way to run a Dataform repository, tested in producti
 | **What** | An Agent Skill (`SKILL.md` plus references, a hook script and templates), packaged as a Claude Code plugin |
 | **For** | Analytics engineers and data engineers who use Google Dataform and BigQuery, and the AI agents that help them |
 | **Works with** | Claude Code, as a plugin or a plain skill, and any tool that reads the Agent Skills format |
-| **Covers** | Layered warehouse architecture, SQLX naming conventions, MD5 surrogate keys, sentinel rows, dimensional modeling (dimensions, facts, bridges, KPIs), snapshot history, contracts for apps and reports, assertions, sqlfluff, CI, IAM |
+| **Covers** | Layered warehouse architecture, SQLX naming conventions, surrogate keys chosen for the system (MD5, FARM_FINGERPRINT, SHA-256 or natural), sentinel rows, dimensional modeling (dimensions, facts, bridges, KPIs), snapshot history, contracts for apps and reports, assertions, sqlfluff, CI, IAM |
 | **License** | MIT |
 
 ## The architecture in one picture
@@ -17,7 +17,7 @@ It packages one opinionated way to run a Dataform repository, tested in producti
 ```text
 raw tables
 └─ declaration_<source>      read-only pointers
-   └─ l1_<source>            one model per raw table: casts, hashed keys
+   └─ l1_<source>            one model per raw table: casts, surrogate keys
       └─ l2_<business_unit>  business logic, one schema per business unit of the company
          ├─ l3p_<target>     machine to machine: apps, APIs, CRM, sync and export jobs
          └─ l3r_<audience>   for people: reports and dashboards
@@ -30,7 +30,7 @@ In medallion-architecture terms, declarations and L1 are roughly bronze, L2 is s
 - Puts new logic in the right layer and schema, and keeps the dependency graph acyclic. Business logic goes to the schema of the business unit that owns it. A table goes to L3P when a program reads it, and to L3R when people read it.
 - Names schemas, tables and columns by a strict convention (`dim_`/`fct_`/`rel_`/`kpi_`, plus `_id`/`_cd`/`_ds`/`_dt`/`_fl`/`_nr`/`_qt`/`_vl`/`_pc`).
 - Writes every model in the same shape: import CTEs, a grain comment, `final`.
-- Keys everything with MD5 surrogate keys, and keeps facts complete with "not assigned" sentinel rows. It tells the different kinds of sentinel apart: the global `na` row, scoped default members such as a sector `0` "Default", catch-all categories, numeric markers.
+- Chooses a surrogate-key strategy that fits the system: MD5 when keys leave BigQuery, FARM_FINGERPRINT (INT64) for BigQuery and BI import models, SHA-256 for strict policies, natural keys for small projects. It applies the strategy through one `includes/keys.js` helper, and keeps facts complete with "not assigned" sentinel rows. It tells the different kinds of sentinel apart: the global `na` row, scoped default members such as a sector `0` "Default", catch-all categories, numeric markers.
 - Applies known-good patterns: cross-system bridges that keep their misses, validity windows, change capture of snapshot feeds, reconstructed history, peer-group banding without cycles, weighted allocation.
 - Builds machine-to-machine contracts (names and types the target system dictates, its constraints mirrored as assertions, table functions) and reports for people (thin scoped views, refresh heartbeats).
 - Asks before guessing. When the repository and the data don't settle a question (which unit owns a model, what a field means, a business rule, a target's field names), Claude asks with a recommendation instead of inventing an answer, and keeps working on everything else in the meantime.
@@ -129,7 +129,7 @@ skills/dataform-bigquery-warehouse/
     kimball-scorecard.md    Kimball scoring: 16 repository and 15 model criteria, weights, grades A–D
     layers.md               what each layer may and may not do
     naming.md               schemas, tables, columns, CTEs, tags
-    keys-and-sentinels.md   MD5 keys, na/nd, kinds of sentinel, scoped default members
+    keys-and-sentinels.md   choosing a key strategy, the keys helper, na/nd, kinds of sentinel
     modeling-patterns.md    17 patterns: dims, facts, bridges, snapshots, history, rankings, ...
     presentation-contracts.md  L3P (machine to machine) and L3R (people)
     quality-and-testing.md  assertions, verification queries, reconciliation
@@ -163,9 +163,20 @@ Yes. The skill tells Claude to read the repository's own conventions (CLAUDE.md,
 
 Not directly. The commands, configs and templates are specific to Google Dataform (SQLX, `ref()`, built-in assertions, incremental tables). The modeling ideas carry over to dbt and other SQL-based tools: the layers, the keys, the sentinel rows, the bridges and the verification queries.
 
+### Do I have to use MD5 surrogate keys?
+
+No. The skill picks the key strategy that fits the system, and records it once in `includes/keys.js`:
+
+- `md5_hex` when keys leave BigQuery (apps, reverse ETL, other databases), because every language can compute MD5.
+- `farm_fingerprint` (INT64) when keys stay in BigQuery and its BI tool, because it gives the smallest, fastest joins and compresses best in Power BI.
+- `sha256_hex` when a policy bans MD5.
+- `natural` keys for small, single-source projects.
+
+Models call `keys.surrogate(...)` and `keys.unknown()`, so no model hardcodes a hash function. An existing repository keeps the strategy it has, because changing it changes every key downstream.
+
 ### Which BigQuery features does it use?
 
-Standard GoogleSQL: `union all strict corresponding`, `qualify`, `to_hex(md5(...))`, `generate_date_array`, `except distinct`, table-valued functions, and partitioning and clustering.
+Standard GoogleSQL: `union all strict corresponding`, `qualify`, `md5` / `sha256` / `farm_fingerprint`, `generate_date_array`, `except distinct`, table-valued functions, and partitioning and clustering.
 
 ### What does the glossary commit hook do?
 

@@ -8,6 +8,9 @@ sql_file_exts = .sql,.sqlx
 # AL05 - Tables should not be aliased if that alias is not used.
 # AL07 - Avoid table aliases in from clauses and join conditions.
 # AM03 - Ambiguous ordering directions for columns in order by clause.
+# LT01 - Spacing. sqlfluff checks alias alignment on the templated SQL, where every ${...} call
+#        (e.g. ${keys.surrogate("id")}) becomes one short placeholder, so aligned select lists
+#        that call the keys helper are always reported as misaligned. Align aliases by hand.
 # LT05 - Line is too long.
 # LT08 - Blank line after CTE closing bracket (blank lines between CTEs are optional here).
 # RF04 - Keywords used as identifiers: L1 keeps source column names and L3P keeps the names a
@@ -15,7 +18,7 @@ sql_file_exts = .sql,.sqlx
 # ST04 - Nested CASE statements.
 # ST06 - Select wildcards then simple targets before calculations and aggregates.
 # ST07 - Prefer specifying join keys instead of using USING.
-exclude_rules = AL05, AL07, AM03, LT05, LT08, RF04, ST04, ST06, ST07
+exclude_rules = AL05, AL07, AM03, LT01, LT05, LT08, RF04, ST04, ST06, ST07
 
 [sqlfluff:indentation]
 indent_unit = space

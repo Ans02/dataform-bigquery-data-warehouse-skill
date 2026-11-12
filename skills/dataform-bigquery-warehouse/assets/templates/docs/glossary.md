@@ -86,14 +86,14 @@ raw sources ──► declaration_{source} ──► l1_{source} ──► l2_{b
 
 ### Surrogate keys
 
-`coalesce(to_hex(md5(cast(source_id as string))), to_hex(md5('nd')))`, hashed once in L1.
+Strategy `md5_hex`, set in `includes/keys.js` because <why it fits this system>. `keys.surrogate("id")` generates `coalesce(to_hex(md5(cast(id as string))), to_hex(md5('nd')))`, computed once in L1.
 
 ### Sentinel values
 
 | Value | Meaning |
 | --- | --- |
-| `to_hex(md5('na'))`, `'Not Assigned'` | Not assigned: a lookup failed, or the dimension's sentinel row |
-| `to_hex(md5('nd'))` | No data: the source key was null |
+| `keys.unknown()` = `to_hex(md5('na'))`, `'Not Assigned'` | Not assigned: a lookup failed, or the dimension's sentinel row |
+| `keys.noData()` = `to_hex(md5('nd'))` | No data: the source key was null |
 
 ## 4. Business glossary (source language → English)
 
