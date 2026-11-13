@@ -1,5 +1,5 @@
 // Surrogate keys of this repository. The strategy is chosen once, here, for this system, and every
-// model calls these helpers, so all keys are computed the same way.
+// model calls these helpers, so all generated `_sk` keys are computed the same way.
 //
 // Choose with the dataform-bigquery-warehouse skill (references/keys-and-sentinels.md, "Choosing a
 // key strategy"). Changing the strategy later changes every key downstream: that's a breaking change
@@ -8,14 +8,12 @@
 //   md5_hex           STRING (32)  portable: Postgres, Python or any app can compute the same key
 //   farm_fingerprint  INT64        BigQuery-native: smallest, fastest joins; best for BI import models
 //   sha256_hex        STRING (64)  when a security policy requires SHA-2
-//   natural           STRING       the source id itself: small, single-source projects only
 const STRATEGY = "md5_hex";
 
 const HASH = {
   md5_hex: (text) => `to_hex(md5(${text}))`,
   farm_fingerprint: (text) => `farm_fingerprint(${text})`,
-  sha256_hex: (text) => `to_hex(sha256(${text}))`,
-  natural: (text) => text
+  sha256_hex: (text) => `to_hex(sha256(${text}))`
 };
 
 if (!HASH[STRATEGY]) {

@@ -24,18 +24,18 @@ l2_masterdata_dim_customer as (
   select *
   from ${ref({schema: 'l2_masterdata', name: 'dim_customer'})}
   -- the sentinel row is a warehouse concept; target programs never see it
-  where customer_id != ${keys.unknown()}
+  where customer_sk != ${keys.unknown()}
 )
 
 , final as (
   select
-    safe_cast(customer_cd as int64) as id
+    safe_cast(customer_num as int64) as id
     , customer_ds                   as name
     , country_cd                    as country
     , entry_dt                      as entry_date
     , exit_dt                       as exit_date
     , active_fl                     as is_active
-    , customer_id                   as customer_hash
+    ,     customer_sk                   as customer_hash
     , update_dt                     as updated_at
   from l2_masterdata_dim_customer
 )

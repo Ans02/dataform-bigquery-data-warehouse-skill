@@ -3,8 +3,8 @@ config {
   schema: "l2_sales",
   name: "fct_invoice",
   assertions: {
-    uniqueKey: ["invoice_id"],
-    nonNull: ["customer_id", "document_dt"]
+    uniqueKey: ["invoice_sk"],
+    nonNull: ["customer_sk", "document_dt"]
   }
 }
 
@@ -24,20 +24,20 @@ l1_erp_invoice as (
 
 , final as (
   select
-    invoice.invoice_id
-    , invoice.id                                             as source_invoice_id
-    , invoice.document_number                                as document_nr
+    invoice.invoice_sk
+    , invoice.id                                             as invoice_id
+    , invoice.document_number                                as document_num
     , invoice.document_date                                  as document_dt
     -- an unknown customer maps to the sentinel row instead of dropping the invoice
-    , coalesce(dim_customer.customer_id, ${keys.unknown()})  as customer_id
+    , coalesce(dim_customer.customer_sk, ${keys.unknown()})  as customer_sk
     , coalesce(invoice.document_type = 'CREDIT_NOTE', false) as credit_note_fl
-    , invoice.net_amount                                     as net_amount_vl
-    , invoice.vat_amount                                     as vat_amount_vl
-    , invoice.gross_amount                                   as gross_amount_vl
-    , invoice.open_amount                                    as open_amount_vl
+    , invoice.net_amount                                     as net_amt
+    , invoice.vat_amount                                     as vat_amt
+    , invoice.gross_amount                                   as gross_amt
+    , invoice.open_amount                                    as open_amt
   from l1_erp_invoice as invoice
   left outer join l2_masterdata_dim_customer as dim_customer
-    on invoice.customer_id = dim_customer.customer_id
+    on invoice.customer_sk = dim_customer.customer_sk
 )
 
 select *

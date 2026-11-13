@@ -40,24 +40,32 @@ L1 models keep the raw table's name, minus loader suffixes. L3P models use the t
 
 | Suffix | Meaning | Type | Examples |
 | --- | --- | --- | --- |
-| `_id` | Surrogate or foreign key, computed with the repository's key strategy (`includes/keys.js`) | STRING or INT64, depending on the strategy | `customer_id`, `site_id` |
-| `_cd` | Business code: ids shown to people, ISO codes, postal codes, phone numbers, category codes | STRING (INT64 only for truly numeric codes) | `customer_cd`, `country_cd`, `postal_cd` |
+| `_id` | Natural or source identifier | Source type, usually STRING or INT64 | `customer_id`, `stripe_charge_id` |
+| `_sk` | Warehouse-generated hashed/integer surrogate key, computed with the repository's key strategy (`includes/keys.js`) | STRING or INT64, depending on the strategy | `customer_sk`, `date_sk` |
+| `_cd` | Business code: ISO codes, postal codes, category codes | STRING (INT64 only for truly numeric codes) | `country_cd`, `postal_cd`, `category_cd` |
 | `_ds` | Description or label | STRING | `customer_ds`, `street_ds` |
 | `_long_ds` | Display label `code - description` | STRING | `customer_long_ds` |
 | `_dt` | Date or timestamp | DATE / TIMESTAMP | `entry_dt`, `document_dt`, `update_dt` |
 | `_fl` | Boolean flag | BOOL (INT64 0/1 if the BI tool sums flags) | `active_fl`, `latest_fl` |
-| `_nr` | Ordinal or sequence number | INT64 | `sort_nr`, `level_nr`, `year_nr`, `month_nr` |
-| `_qt` | Count or quantity | INT64 / NUMERIC | `room_qt`, `invoice_qt` |
-| `_vl` | Amount or numeric value | NUMERIC / FLOAT64 | `gross_amount_vl`, `revenue_vl` |
-| `_pc` | Percentage | FLOAT64 / NUMERIC | `occupancy_pc` |
+| `_num` | Assigned number or label/code, not a count | STRING or numeric | `customer_num`, `invoice_num`, `tracking_num`, `phone_num` |
+| `_qty` | Quantity | INT64 / NUMERIC | `room_qty`, `returned_qty` |
+| `_cnt` | Count (use `_count` when readability matters more than brevity) | INT64 | `login_cnt`, `item_cnt` |
+| `_amt` | Amount (use `_amount` when readability matters more than brevity) | NUMERIC / FLOAT64 | `gross_amt`, `refund_amt` |
+| `_pct` | Percentage | FLOAT64 / NUMERIC | `discount_pct`, `tax_pct` |
+| `_ytd`, `_mtd`, `_qtd` | Year-, month- or quarter-to-date measure | Type of the measure | `revenue_ytd`, `spend_mtd` |
+| `_utc` | Coordinated Universal Time | TIMESTAMP or DATETIME | `created_at_utc` |
+| `_url`, `_uri` | URL or URI | STRING | `landing_page_url`, `avatar_uri` |
+| `_ip` | IP address | STRING | `client_ip`, `signup_ip` |
+| `_os` | Operating system | STRING | `device_os`, `os_version` |
+| `_geo`, `_lat`, `_lon` | Geographic value, latitude or longitude | GEOGRAPHY / FLOAT64 | `store_geo`, `store_lat`, `store_lon` |
 
 Rules:
 
-- A column name is `<entity or measure>_<qualifier>_<suffix>`: `invoice_recipient_ds`, `revenue_room_adults_vl`.
-- Choose one convention per concept and keep it repository-wide: `year_nr` or `year_cd`, not both. A column used as a join key across models has the same name and type everywhere.
+- A column name is `<entity or measure>_<qualifier>_<suffix>`: `invoice_recipient_ds`, `gross_amt`. Use `avg_`, `min_` and `max_` as prefixes for summary statistics (`avg_order_value`, `max_login_at`).
+- `_id` names natural/source identifiers; `_sk` names warehouse surrogate keys. Never use `_id` for a generated hash. Do not add `pk` or `fk` when `_id` or `_sk` already identifies the key role; use those labels only when a consumer specifically requires them.
+- Choose one convention per concept and keep it repository-wide. A column used as a join key across models has the same name and type everywhere.
 - Flags: choose BOOL or 0/1 per table and never mix the two within a table. Document INT64 flags, because `where latest_fl` fails on an INT64.
-- Percentages: say in a comment whether `_pc` runs from 0 to 1 or from 0 to 100.
-- Where users search by the raw source id, keep it in L2 next to the surrogate key: `source_customer_id` (raw) beside `customer_id` (surrogate).
+- Percentages: say in a comment whether `_pct` runs from 0 to 1 or from 0 to 100.
 - Store numeric-looking source ids as STRING when they are identifiers rather than quantities.
 
 ## Language

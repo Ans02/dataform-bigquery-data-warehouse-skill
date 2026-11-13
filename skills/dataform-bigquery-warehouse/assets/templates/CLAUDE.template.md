@@ -42,12 +42,12 @@ Raw sources → declarations → L1 → L2 (business units) → L3P (machine to 
 ## Naming conventions
 
 - Table prefixes: `dim_`, `fct_`, `rel_`, `kpi_`.
-- Column suffixes from L2 on: `_id` key, `_cd` code, `_ds` description, `_dt` date, `_fl` flag, `_nr` number, `_qt` quantity, `_vl` value, `_pc` percentage.
+- L2 columns follow `references/naming.md`: `_id` natural/source identifier, `_sk` hashed/integer warehouse surrogate key, `_qty` quantity, `_cnt` count, `_amt` amount, `_pct` percentage, `_num` assigned number; `_cd` code, `_ds` description, `_dt` date/time, `_fl` flag.
 - English names from L2 on; L1 keeps the source names.
 
 ## Keys and sentinels
 
-- Key strategy: `<md5_hex | farm_fingerprint | sha256_hex | natural>`, set in `includes/keys.js`, because <why it fits this system, e.g. "apps store the keys" or "Power BI import models only">. Models call `keys.surrogate`, `keys.composite` and `keys.unknown()`. Changing the strategy changes every key downstream.
+- Hash strategy for `_sk` columns: `<md5_hex | farm_fingerprint | sha256_hex>`, set in `includes/keys.js`, because <why it fits this system, e.g. "apps store the keys" or "Power BI import models only">. Models call `keys.surrogate`, `keys.composite` and `keys.unknown()`. Changing the strategy changes every key downstream.
 - `keys.unknown()` means not assigned; `keys.noData()` means the source key was null.
 - Each dimension has one `'Not Assigned'` row keyed `keys.unknown()`. Facts coalesce their foreign keys to it. L3P filters it out; L3R shows it.
 - Scoped default members (the source's own catch-all per parent): <list them, e.g. "sector 0 'Default' per customer and year">. They have real keys, and presentation keeps them.

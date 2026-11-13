@@ -8,7 +8,7 @@ config {
 
 select
   accountid
-  , ${keys.surrogate("accountid")}  as account_id
+  , ${keys.surrogate("accountid")}  as account_sk
   , name
   , erp_customer_number
   , statecode

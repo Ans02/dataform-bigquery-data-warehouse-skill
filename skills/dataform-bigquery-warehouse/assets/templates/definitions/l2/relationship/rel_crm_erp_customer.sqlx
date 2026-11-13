@@ -3,7 +3,7 @@ config {
   schema: "l2_relationship",
   name: "rel_crm_erp_customer",
   assertions: {
-    uniqueKey: ["crm_erp_customer_id"]
+    uniqueKey: ["crm_erp_customer_sk"]
   }
 }
 
@@ -23,32 +23,32 @@ l1_crm_account as (
 , l2_masterdata_dim_customer as (
   select *
   from ${ref({schema: 'l2_masterdata', name: 'dim_customer'})}
-  where customer_id != ${keys.unknown()}
+  where customer_sk != ${keys.unknown()}
 )
 
 , matched as (
   select
-    account.account_id
-    , dim_customer.customer_id
+    account.account_sk
+    , dim_customer.customer_sk
   from l1_crm_account as account
   full outer join l2_masterdata_dim_customer as dim_customer
-    on trim(account.erp_customer_number) = dim_customer.customer_cd
+    on trim(account.erp_customer_number) = dim_customer.customer_num
 )
 
 , final as (
   select
-    ${keys.composite("account_id", "customer_id")}            as crm_erp_customer_id
-    , coalesce(account_id, ${keys.unknown()})                 as account_id
-    , coalesce(customer_id, ${keys.unknown()})                as customer_id
+    ${keys.composite("account_sk", "customer_sk")}            as crm_erp_customer_sk
+    , coalesce(account_sk, ${keys.unknown()})                  as account_sk
+    , coalesce(customer_sk, ${keys.unknown()})                 as customer_sk
     , case
-      when account_id is null then 'erp only'
-      when customer_id is null then 'crm only'
+      when account_sk is null then 'erp only'
+      when customer_sk is null then 'crm only'
       else 'matched'
     end                                                       as match_status_cd
-    , account_id is not null and customer_id is not null      as match_fl
+    , account_sk is not null and customer_sk is not null      as match_fl
     -- several CRM accounts carrying the same ERP number: a duplicate to clean up in the CRM
-    , customer_id is not null
-    and count(account_id) over (partition by customer_id) > 1 as duplicate_match_fl
+    , customer_sk is not null
+    and count(account_sk) over (partition by customer_sk) > 1 as duplicate_match_fl
   from matched
 )
 

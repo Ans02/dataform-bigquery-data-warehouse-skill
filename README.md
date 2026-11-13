@@ -9,7 +9,7 @@ It packages one opinionated way to run a Dataform repository, tested in producti
 | **What** | An Agent Skill (`SKILL.md` plus references, a hook script and templates), packaged as a Claude Code plugin |
 | **For** | Analytics engineers and data engineers who use Google Dataform and BigQuery, and the AI agents that help them |
 | **Works with** | Claude Code, as a plugin or a plain skill, and any tool that reads the Agent Skills format |
-| **Covers** | Layered warehouse architecture, SQLX naming conventions, surrogate keys chosen for the system (MD5, FARM_FINGERPRINT, SHA-256 or natural), sentinel rows, dimensional modeling (dimensions, facts, bridges, KPIs), snapshot history, contracts for apps and reports, assertions, sqlfluff, CI, IAM |
+| **Covers** | Layered warehouse architecture, SQLX naming conventions, source `_id` identifiers and hashed `_sk` surrogate keys (MD5, FARM_FINGERPRINT or SHA-256), measures named with `_qty`/`_cnt`/`_amt`/`_pct`/`_num`, sentinel rows, dimensional modeling (dimensions, facts, bridges, KPIs), snapshot history, contracts for apps and reports, assertions, sqlfluff, CI, IAM |
 | **License** | MIT |
 
 ## The architecture in one picture
@@ -28,9 +28,9 @@ In medallion-architecture terms, declarations and L1 are roughly bronze, L2 is s
 ## What Claude does with it
 
 - Puts new logic in the right layer and schema, and keeps the dependency graph acyclic. Business logic goes to the schema of the business unit that owns it. A table goes to L3P when a program reads it, and to L3R when people read it.
-- Names schemas, tables and columns by a strict convention (`dim_`/`fct_`/`rel_`/`kpi_`, plus `_id`/`_cd`/`_ds`/`_dt`/`_fl`/`_nr`/`_qt`/`_vl`/`_pc`).
+- Names schemas, tables and columns by a strict convention (`dim_`/`fct_`/`rel_`/`kpi_`, source identifiers `_id`, surrogate keys `_sk`, codes `_cd`, dates `_dt`, and measures `_qty`/`_cnt`/`_amt`/`_pct`).
 - Writes every model in the same shape: import CTEs, a grain comment, `final`.
-- Chooses a surrogate-key strategy that fits the system: MD5 when keys leave BigQuery, FARM_FINGERPRINT (INT64) for BigQuery and BI import models, SHA-256 for strict policies, natural keys for small projects. It applies the strategy through one `includes/keys.js` helper, and keeps facts complete with "not assigned" sentinel rows. It tells the different kinds of sentinel apart: the global `na` row, scoped default members such as a sector `0` "Default", catch-all categories, numeric markers.
+- Chooses a hash strategy that fits the system: MD5 when keys leave BigQuery, FARM_FINGERPRINT (INT64) for BigQuery and BI import models, SHA-256 for strict policies. In L2, source identifiers end in `_id` and hashed warehouse keys end in `_sk`. It applies the strategy through one `includes/keys.js` helper, and keeps facts complete with "not assigned" sentinel rows. It tells the different kinds of sentinel apart: the global `na` row, scoped default members such as a sector `0` "Default", catch-all categories, numeric markers.
 - Applies known-good patterns: cross-system bridges that keep their misses, validity windows, change capture of snapshot feeds, reconstructed history, peer-group banding without cycles, weighted allocation.
 - Builds machine-to-machine contracts (names and types the target system dictates, its constraints mirrored as assertions, table functions) and reports for people (thin scoped views, refresh heartbeats).
 - Asks before guessing. When the repository and the data don't settle a question (which unit owns a model, what a field means, a business rule, a target's field names), Claude asks with a recommendation instead of inventing an answer, and keeps working on everything else in the meantime.
@@ -166,14 +166,15 @@ Not directly. The commands, configs and templates are specific to Google Datafor
 
 ### Do I have to use MD5 surrogate keys?
 
-No. The skill picks the key strategy that fits the system, and records it once in `includes/keys.js`:
+No. Every warehouse surrogate key ends in `_sk` and uses a hash strategy chosen for the system, recorded once in `includes/keys.js`:
 
 - `md5_hex` when keys leave BigQuery (apps, reverse ETL, other databases), because every language can compute MD5.
 - `farm_fingerprint` (INT64) when keys stay in BigQuery and its BI tool, because it gives the smallest, fastest joins and compresses best in Power BI.
 - `sha256_hex` when a policy bans MD5.
-- `natural` keys for small, single-source projects.
 
-Models call `keys.surrogate(...)` and `keys.unknown()`, so no model hardcodes a hash function. An existing repository keeps the strategy it has, because changing it changes every key downstream.
+In L2, natural and source identifiers use `_id` (for example `customer_id`); generated warehouse surrogate keys use `_sk` (for example `customer_sk`).
+
+Models call `keys.surrogate(...)` and `keys.unknown()`, so no model hardcodes a hash function. A repository already using hashed keys keeps its strategy, because changing it changes every key downstream.
 
 ### Which BigQuery features does it use?
 

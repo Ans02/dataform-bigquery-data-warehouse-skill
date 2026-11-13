@@ -4,15 +4,15 @@
 
 The reader decides: a program reads L3P, and a person reads L3R.
 
-| | L3P: machine to machine | L3R: for people |
-| --- | --- | --- |
-| Reader | A program: an app backend, an API, a CRM or ERP import, a reverse-ETL or export job, another team's pipeline | A person, through a dashboard, a BI report, a connected spreadsheet or an ad-hoc analysis |
-| Schema | `l3p_<target>`, one per target system | `l3r_<audience>`, one per audience |
-| Contract | Strict: the target dictates names, types and constraints | Loose: the report owns the shape |
-| Changes | Coordinated like an API change | Released together with the report |
-| Typical model | `table`, current state, tagged for the target's sync | Thin `view` over L2 |
-| Sentinels | `na` rows filtered out | `na` rows shown as "Not Assigned" |
-| Monitoring | The sync job's own monitoring | A `fct_last_refresh` heartbeat |
+|               | L3P: machine to machine                                                                                      | L3R: for people                                                                           |
+| ------------- | ------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| Reader        | A program: an app backend, an API, a CRM or ERP import, a reverse-ETL or export job, another team's pipeline | A person, through a dashboard, a BI report, a connected spreadsheet or an ad-hoc analysis |
+| Schema        | `l3p_<target>`, one per target system                                                                        | `l3r_<audience>`, one per audience                                                        |
+| Contract      | Strict: the target dictates names, types and constraints                                                     | Loose: the report owns the shape                                                          |
+| Changes       | Coordinated like an API change                                                                               | Released together with the report                                                         |
+| Typical model | `table`, current state, tagged for the target's sync                                                         | Thin `view` over L2                                                                       |
+| Sentinels     | `na` rows filtered out                                                                                       | `na` rows shown as "Not Assigned"                                                         |
+| Monitoring    | The sync job's own monitoring                                                                                | A `fct_last_refresh` heartbeat                                                            |
 
 Edge cases:
 
@@ -30,8 +30,8 @@ Rules:
 1. **One schema per target system**, named `l3p_<target>`. Never let two targets share a table, because their contracts drift independently.
 2. **The target's names win.** Alias to the target's field names and types in the final select only. List the fixed names per schema in CLAUDE.md under "do not rename". Everything else in the model follows the warehouse conventions.
 3. **Treat the schema as an API.** Adding a column is safe. Renaming or removing a column, or changing its type or meaning, needs the target owner's agreement and a coordinated release. Record the target's owner in CLAUDE.md.
-4. **Filter out sentinels** and other warehouse artifacts (`where customer_id != ${keys.unknown()}`, `customer_cd != 'na'`). Scoped default members, such as a company's "Default" sector, hold real amounts and stay in (keys-and-sentinels.md).
-5. **Cast to the target's types.** Use `safe_cast(customer_cd as int64) as id` when the app uses integer ids and `cast(x as timestamp)` when the API expects timestamps, and lowercase emails and URLs if the target compares them.
+4. **Filter out sentinels** and other warehouse artifacts (`where customer_sk != ${keys.unknown()}`, `customer_num != 'na'`). Scoped default members, such as a company's "Default" sector, hold real amounts and stay in (keys-and-sentinels.md).
+5. **Cast to the target's types.** Use `safe_cast(customer_num as int64) as id` when the app uses integer ids and `cast(x as timestamp)` when the API expects timestamps, and lowercase emails and URLs if the target compares them.
 6. **Mirror the target's constraints as assertions.** Copy NOT NULL constraints into `nonNull`, unique constraints into `uniqueKey`, and CHECK constraints into `rowConditions`, with each constraint's name in a comment. A bad row then fails the run in Dataform, before the sync job writes half a batch.
 
    ```sqlx
@@ -64,8 +64,7 @@ Rules:
    ```
 
 9. **State whether a table is current state or history** in its header comment, for example: "one row per source/company/branch, replaced each run; the history lives in l2_monitoring.fct_job_run".
-10. **Delta feeds.** If the target wants only changed rows, filter on a reliable update timestamp with a margin wider than the schedule (`where last_update_dt >= current_date() - 5` for a daily job), and let the target upsert by key. Document the margin.
-11. **Demo and test records** the app needs (a demo company for screenshots, a test tenant) are appended in L3P only, with ids outside the real range and a comment. Never put them in L2.
+10. **Demo and test records** the app needs (a demo company for screenshots, a test tenant) are appended in L3P only, with ids outside the real range and a comment. Never put them in L2.
 
 ### Parameterized access: table functions
 
@@ -101,11 +100,6 @@ L3R is what people read, through the BI tools (Power BI, Looker Studio, Tableau)
 
 Rules:
 
-1. **Thin views.** Most L3R models are a `select *` over an L2 model, with at most a filter or a few renames. Logic belongs in L2, where other reports and targets can reuse it.
-2. **Re-expose the dimensions** the report needs, so the BI model connects to a single dataset. For example, `l3r_finance.dim_customer` is a view over `l2_masterdata.dim_customer`.
-3. **Apply the report's scope here:** `where latest_fl = 1`, `where extract(year from date_dt) >= extract(year from current_date()) - 10`.
-4. **Make it readable.** Use clear English column names, `_long_ds` labels for slicers, and status codes with a sort number. The report can change these freely, because no program depends on them.
-5. **Report-only shapes are fine in L3R**: a time-selection helper that lists "last 7 days / same period last year" per date, or a hierarchy flattened for one report.
 6. **Sentinels:** keep the `na` row so the report shows a "Not Assigned" bucket. When a report dimension is narrower than its facts (only ordinary members, say), add a scope sentinel so the out-of-scope facts appear as "Not Assigned" (keys-and-sentinels.md).
 7. **Refresh heartbeat.** Each L3R schema gets a `fct_last_refresh`, so people can see how fresh the data is:
 

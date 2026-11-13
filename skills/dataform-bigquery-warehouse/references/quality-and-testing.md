@@ -4,10 +4,10 @@
 
 ```js
 assertions: {
-  uniqueKey: ["invoice_id"],            // the grain; composite keys allowed: ["company_id", "year_nr"]
-  nonNull: ["customer_id", "document_dt"],
+  uniqueKey: ["invoice_sk"],            // the grain; composite keys allowed: ["company_sk", "year_num"]
+  nonNull: ["customer_sk", "document_dt"],
   rowConditions: [
-    "gross_amount_vl = net_amount_vl + vat_amount_vl",
+    "gross_amt = net_amt + vat_amt",
     "exit_dt is null or exit_dt >= entry_dt"
   ]
 }
@@ -35,12 +35,12 @@ config {
 -- sector and year. Duplicated bridge rows (a sum of 200) silently double the revenue of every
 -- affected site and corrupt everything ranked on it. Fix at the source mapping table.
 select
-  sector_id
-  , year_nr
-  , count(*)     as site_qt
-  , sum(percent) as percent_sum_vl
+  sector_sk
+  , year_num
+  , count(*)     as site_cnt
+  , sum(percent) as weight_sum_pct
 from ${ref({schema: 'l2_finance', name: 'rel_sector_site'})}
-group by sector_id, year_nr
+group by sector_sk, year_num
 having sum(percent) not between 95 and 105
 ```
 
@@ -62,9 +62,9 @@ Compiling only proves the SQL is well-formed. Before calling a change done, run 
 **Grain:**
 
 ```sql
-select key_id, count(*) as row_qt
+select key_sk, count(*) as row_cnt
 from model
-group by key_id
+group by key_sk
 having count(*) > 1
 ```
 
@@ -75,7 +75,7 @@ having count(*) > 1
 ```sql
 -- in SQLX use ${keys.unknown()}; in the console, the literal of your strategy:
 -- to_hex(md5('na')), -1 or 'na'
-select countif(customer_id = to_hex(md5('na'))) / count(*) as unassigned_pc
+select countif(customer_sk = to_hex(md5('na'))) / count(*) as unassigned_pct
 from l2_sales.fct_invoice
 ```
 
@@ -85,15 +85,15 @@ from l2_sales.fct_invoice
 
 ```sql
 with child as (
-  select parent_id, sum(revenue_vl) as revenue_vl
+  select parent_sk, sum(revenue_amt) as revenue_amt
   from fct_detail
-  group by parent_id
+  group by parent_sk
 )
 
-select count(*) as mismatch_qt
+select count(*) as mismatch_cnt
 from fct_parent as parent
-full outer join child using (parent_id)
-where abs(coalesce(parent.revenue_vl, 0) - coalesce(child.revenue_vl, 0)) > 0.01
+full outer join child using (parent_sk)
+where abs(coalesce(parent.revenue_amt, 0) - coalesce(child.revenue_amt, 0)) > 0.01
 ```
 
 **Before and after a change:** the row count, the distinct key count and the main totals should be unchanged, unless the change was meant to change them. For a model whose output must not change at all:

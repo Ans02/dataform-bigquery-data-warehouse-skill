@@ -36,7 +36,7 @@ Each business entity gets one model in `l2_masterdata`. Build it from the system
 
 - State the grain in the first comment line. Every column must depend on that grain.
 - Foreign keys: left join to the dimension and wrap the key in `coalesce(..., ${keys.unknown()})`.
-- Measures use `_vl` and `_qt`. Keep signed amounts signed (credit notes negative) and add a flag (`credit_note_fl`) instead of filtering them out.
+- Measures use `_amt`, `_qty` or `_cnt`. Keep signed amounts signed (credit notes negative) and add a flag (`credit_note_fl`) instead of filtering them out.
 - When the document date and the business date differ, keep both, and comment which one reports use. A credit note, for example, can carry the date of the invoice it corrects as `date_dt`.
 - Don't pre-aggregate in a `fct_` model. Aggregates are `kpi_` models.
 
@@ -48,13 +48,13 @@ Two legal entities run the same ERP in separate databases. The schemas are ident
 , invoices_entity_a as (
   select
     'entity_a'                                                       as source_company_ds
-    , ${keys.composite("'entity_a'", "invoice.id")}                 as invoice_id
-    , invoice.id                                                     as source_invoice_id
-    , coalesce(dim_customer.customer_id, ${keys.unknown()})          as customer_id
-    , invoice.gross_amount                                           as gross_amount_vl
+    , ${keys.composite("'entity_a'", "invoice.id")}                 as invoice_sk
+    , invoice.id                                                     as invoice_id
+    , coalesce(dim_customer.customer_sk, ${keys.unknown()})          as customer_sk
+    , invoice.gross_amount                                           as gross_amt
   from l1_erp_invoice_entity_a as invoice
   left outer join l2_sales_dim_customer as dim_customer
-    on invoice.customer_ref = dim_customer.source_customer_id
+    on invoice.customer_ref = dim_customer.customer_id
     and dim_customer.source_company_ds = 'entity_a'
 )
 
@@ -79,24 +79,24 @@ Two systems describe the same entity, and the only link is a code someone typed 
 ```sql
 , matched as (
   select
-    account.account_id
-    , dim_customer.customer_id
+    account.account_sk
+    , dim_customer.customer_sk
   from l1_crm_account as account
   full outer join l2_masterdata_dim_customer as dim_customer
-    on trim(account.erp_customer_number) = dim_customer.customer_cd
+    on trim(account.erp_customer_number) = dim_customer.customer_num
 )
 
 , final as (
   select
-    ${keys.composite("account_id", "customer_id")}       as crm_erp_customer_id
-    , coalesce(account_id, ${keys.unknown()})             as account_id
-    , coalesce(customer_id, ${keys.unknown()})            as customer_id
+    ${keys.composite("account_sk", "customer_sk")}       as crm_erp_customer_sk
+    , coalesce(account_sk, ${keys.unknown()})             as account_sk
+    , coalesce(customer_sk, ${keys.unknown()})            as customer_sk
     , case
-      when account_id is null then 'erp only'
-      when customer_id is null then 'crm only'
+      when account_sk is null then 'erp only'
+      when customer_sk is null then 'crm only'
       else 'matched'
     end                                                   as match_status_cd
-    , account_id is not null and customer_id is not null  as match_fl
+    , account_sk is not null and customer_sk is not null  as match_fl
   from matched
 )
 ```
@@ -128,7 +128,7 @@ left outer join rel_channel_site as rel_latest
   on booking.channel_hotel_id = rel_latest.channel_hotel_id
   and rel_latest.latest_fl
 -- in the select list:
-, coalesce(rel_window.site_id, rel_latest.site_id, ${keys.unknown()}) as site_id
+, coalesce(rel_window.site_sk, rel_latest.site_sk, ${keys.unknown()}) as site_sk
 ```
 
 - Overlapping windows make the in-window join fan out. Add an assertion that the windows of one key never overlap, and make sure `latest_fl` is true for exactly one row per key.
@@ -160,8 +160,8 @@ Classify the lower level first, then roll it up with an explicit priority:
 ```sql
 , site_class as (
   select
-    site_id
-    , company_id
+    site_sk
+    , company_sk
     , case
       when has_lodging = 1 and has_food = 0 then 'lodging'      -- lodging dominates "other"
       when has_lodging = 0 and has_food = 1 and has_other = 0 then 'food'
@@ -170,19 +170,19 @@ Classify the lower level first, then roll it up with an explicit priority:
     end as site_class_cd
   from (
     select
-      site_id
-      , company_id
+      site_sk
+      , company_sk
       , max(if(type_ds = 'lodging', 1, 0)) as has_lodging
       , max(if(type_ds = 'food', 1, 0))    as has_food
       , max(if(type_ds = 'other', 1, 0))   as has_other
     from site_types
-    group by site_id, company_id
+    group by site_sk, company_sk
   )
 )
 
 , company_class as (
   select
-    company_id
+    company_sk
     , case
       when countif(site_class_cd = 'mixed') > 0 then 'mixed'   -- one mixed site makes the company mixed
       when countif(site_class_cd = 'lodging') > 0
@@ -191,7 +191,7 @@ Classify the lower level first, then roll it up with an explicit priority:
       else 'mixed'
     end as company_class_cd
   from site_class
-  group by company_id
+  group by company_sk
 )
 ```
 
@@ -213,23 +213,23 @@ Classify the lower level first, then roll it up with an explicit priority:
 
 , per_window as (
   select
-    customer.company_id
+    customer.company_sk
     , time_range.time_range_cd
-    , count(distinct invoice.invoice_id) as invoice_qt
+    , count(distinct invoice.invoice_sk) as invoice_cnt
   from fct_invoice as invoice
   inner join dim_customer as customer
-    on invoice.customer_id = customer.customer_id
+    on invoice.customer_sk = customer.customer_sk
   inner join time_range
     on invoice.document_dt between time_range.start_dt and time_range.end_dt
   where not invoice.credit_note_fl
-  group by customer.company_id, time_range.time_range_cd
+  group by customer.company_sk, time_range.time_range_cd
 )
 ```
 
 - Cross join the population with the windows, then left join the measures. Every entity then appears once per window, with a 0 instead of a missing row.
 - Aggregate at the measure's own grain before joining finer data: sum invoices at invoice grain, not after joining the invoice lines.
 - Write status rules (`new`, `active`, `lost`, `inactive`) as a `case` in priority order, with a comment on each branch, and give each status a sort number for reports.
-- Exclude rows that would collapse into the sentinel (`where company_id != ${keys.unknown()}`), and comment why.
+- Exclude rows that would collapse into the sentinel (`where company_sk != ${keys.unknown()}`), and comment why.
 - A `kpi_` model is usually a `table`: it is read often, and its windows move only once a day.
 
 ## 9. Change capture of snapshot feeds
@@ -240,7 +240,7 @@ Some systems ship a full snapshot of a table every day (forecasts, availability,
 
 ```sql
 select
-  ${keys.surrogate("hotel_ref")}                                       as client_id
+  ${keys.surrogate("hotel_ref")}                                       as client_sk
   , stay_date
   , category_code
   , parse_date('%Y%m%d', file_date)                                    as create_dt
@@ -269,20 +269,20 @@ ${when(incremental(), `
     where create_dt > (select max(create_dt) from ${self()})
   )
   , current_hashes as (
-    select client_id, stay_date, category_code, row_hash
+    select client_sk, stay_date, category_code, row_hash
     from ${self()}
-    qualify row_number() over (partition by client_id, stay_date, category_code order by create_dt desc) = 1
+    qualify row_number() over (partition by client_sk, stay_date, category_code order by create_dt desc) = 1
   )
   , snap_with_prev as (
     select
       snap.*
       , coalesce(
-        lag(snap.row_hash) over (partition by snap.client_id, snap.stay_date, snap.category_code order by snap.create_dt)
+        lag(snap.row_hash) over (partition by snap.client_sk, snap.stay_date, snap.category_code order by snap.create_dt)
         , cur.row_hash
       ) as prev_hash
     from snap
     left outer join current_hashes as cur
-      on snap.client_id = cur.client_id
+      on snap.client_sk = cur.client_sk
       and snap.stay_date = cur.stay_date
       and snap.category_code is not distinct from cur.category_code
   )
@@ -293,7 +293,7 @@ ${when(incremental(), `
   with all_with_prev as (
     select
       *
-      , lag(row_hash) over (partition by client_id, stay_date, category_code order by create_dt) as prev_hash
+      , lag(row_hash) over (partition by client_sk, stay_date, category_code order by create_dt) as prev_hash
     from ${ref({schema: 'l1_pms', name: 'daily_snapshot_src'})}
   )
   select * except (prev_hash)
@@ -309,7 +309,7 @@ select
   *
   , create_dt                                                     as start_date
   , lead(date_sub(create_dt, interval 1 day)) over (
-    partition by client_id, stay_date, category_code order by create_dt
+    partition by client_sk, stay_date, category_code order by create_dt
   )                                                                as end_date
 from ${ref({schema: 'l1_pms', name: 'daily_snapshot_updates'})}
 ```
@@ -374,15 +374,15 @@ Benchmarks often compare an entity with peers of similar size, ranked by a measu
 Equal-count bands of at most about 30 members per peer group:
 
 ```sql
-, cast(ceil(rn * band_qt / grp_qt) as int64) as peer_group_cd
+, cast(ceil(row_num * band_cnt / grp_cnt) as int64) as peer_group_cd
 -- computed from:
-, row_number() over (partition by type_cd, year_nr order by coalesce(total_revenue_vl, 0)) as rn
-, count(*) over (partition by type_cd, year_nr)                                          as grp_qt
-, ceil(count(*) over (partition by type_cd, year_nr) / 30.0)                             as band_qt
+, row_number() over (partition by type_cd, year_num order by coalesce(total_revenue_amt, 0)) as row_num
+, count(*) over (partition by type_cd, year_num)                                           as grp_cnt
+, ceil(count(*) over (partition by type_cd, year_num) / 30.0)                              as band_cnt
 ```
 
 - Output one row per entity and period for the whole population (left join the bands), with `0` meaning "not banded" (excluded or ineligible). Consumers then never lose rows.
-- When the same entities are banded by several measures, build a separate id per banding (`peer_group_id`, `labour_peer_group_id`), each with its own namespace prefix.
+- When the same entities are banded by several measures, build a separate key per banding (`peer_group_sk`, `labour_peer_group_sk`), each with its own namespace prefix.
 - Coalesce the key parts inside the id hash (`coalesce(type_cd, 'na')`). Otherwise an entity without a type gets a NULL id and silently drops out of every join.
 - Materializing the bands as a `table` also keeps the consumers' queries small enough for BigQuery to plan.
 
@@ -391,7 +391,7 @@ Equal-count bands of at most about 30 members per peer group:
 Say a ledger posts revenue per accounting sector, a sector can serve several sites, and a site can span several sectors. A bridge with a `percent` weight splits the amounts:
 
 ```sql
-sum(fct.amount_vl * bridge.percent / 100) as amount_vl
+sum(fct.amount_amt * bridge.percent / 100) as allocated_amt
 ```
 
 Add a custom assertion that the weights of each sector and period sum to about 100. Duplicated bridge rows (a sum of 200) silently double the allocated revenue of every affected site, and of everything ranked on it. When no weight is known, the neutral default (`coalesce(percent, 100)`) also changes totals; see the sentinel comparison in keys-and-sentinels.md.
@@ -403,10 +403,10 @@ When no system holds a small reference table (fee schedules, tier boundaries, re
 ```sql
 -- Membership fee tiers. 2003–2010: official fee schedule (docs/fees.csv).
 -- 2011–2024: derived from billing data. From 2025: two schedules by business type.
-select year_nr, schedule_cd, tier_nr, amount_vl, turnover_from_vl, turnover_to_vl
-from unnest([2025]) as year_nr
+select year_num, schedule_cd, tier_num, amount_amt, turnover_from_amt, turnover_to_amt
+from unnest([2025]) as year_num
 cross join unnest([
-  struct('food' as schedule_cd, 1 as tier_nr, 200.0 as amount_vl, 0.0 as turnover_from_vl, 50000.0 as turnover_to_vl)
+  struct('food' as schedule_cd, 1 as tier_num, 200.0 as amount_amt, 0.0 as turnover_from_amt, 50000.0 as turnover_to_amt)
   , struct('food', 2, 260.0, 50000.01, 100000.0)
 ])
 ```
@@ -425,10 +425,10 @@ with date_spine as (
 
 select
   date_dt
-  , extract(year from date_dt)                                                             as year_nr
-  , extract(quarter from date_dt)                                                          as quarter_nr
+  , extract(year from date_dt)                                                             as year_num
+  , extract(quarter from date_dt)                                                          as quarter_num
   , format_date('%Y%m', date_dt)                                                           as year_month_cd
-  , extract(isoweek from date_dt)                                                          as iso_week_nr
+  , extract(isoweek from date_dt)                                                          as iso_week_num
   , date_trunc(date_dt, month)                                                             as first_day_of_month_dt
   , if(extract(year from date_dt) = extract(year from current_date()), 1, 0)               as cy_fl
   , if(extract(year from date_dt) = extract(year from current_date()) - 1, 1, 0)           as py_fl
@@ -447,7 +447,7 @@ from date_spine
 
 ## 16. Hierarchies for BI
 
-BI tools handle fixed-depth level columns much better than parent-child tables. Flatten an outline into `level1_cd`/`level1_ds` through `level4_cd`/`level4_ds`, plus `sort_nr`, `level_nr`, and a `sign_nr` that says how a line adds into its total. When the outline skips a level (a level-4 line that rolls straight into a level-2 subtotal), leave the skipped level NULL instead of inventing a parent, and comment the rule. Display labels can repeat across different codes, so join and filter on codes, never on labels.
+BI tools handle fixed-depth level columns much better than parent-child tables. Flatten an outline into `level1_cd`/`level1_ds` through `level4_cd`/`level4_ds`, plus `sort_num`, `level_num`, and a `sign_num` that says how a line adds into its total. When the outline skips a level (a level-4 line that rolls straight into a level-2 subtotal), leave the skipped level NULL instead of inventing a parent, and comment the rule. Display labels can repeat across different codes, so join and filter on codes, never on labels.
 
 ## 17. JavaScript-generated SQL
 
@@ -455,14 +455,14 @@ Use a `js { }` block when the same expression repeats over a list of columns:
 
 ```sqlx
 js {
-  const cumulativeColumns = ['revenue_vl', 'room_nights_qt', 'guest_nights_qt'];
+  const cumulativeColumns = ['revenue_amt', 'room_nights_cnt', 'guest_nights_cnt'];
   const cumulativeSum = (columns) => columns
-    .map((c) => `sum(${c}) over (partition by sales_id order by create_dt rows between unbounded preceding and current row) as ${c}`)
+    .map((c) => `sum(${c}) over (partition by sales_sk order by create_dt rows between unbounded preceding and current row) as ${c}`)
     .join('\n    , ');
 }
 
 select
-  sales_id
+  sales_sk
   , ${cumulativeSum(cumulativeColumns)}
 from ...
 ```

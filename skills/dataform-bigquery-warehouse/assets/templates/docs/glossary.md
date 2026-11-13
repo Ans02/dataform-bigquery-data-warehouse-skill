@@ -74,19 +74,31 @@ raw sources ──► declaration_{source} ──► l1_{source} ──► l2_{b
 
 | Suffix | Type | Examples |
 | --- | --- | --- |
-| `_id` | Hashed key | `customer_id` |
-| `_cd` | Code | `customer_cd`, `country_cd` |
+| `_id` | Natural or source identifier | `customer_id`, `stripe_charge_id` |
+| `_sk` | Hashed or integer warehouse surrogate key | `customer_sk` |
+| `_cd` | Code | `country_cd` |
+| `_num` | Assigned number, not a count | `customer_num`, `invoice_num` |
 | `_ds` | Description | `customer_ds` |
 | `_dt` | Date or timestamp | `entry_dt` |
 | `_fl` | Flag | `active_fl` |
-| `_nr` | Ordinal or sequence number | `year_nr` |
-| `_qt` | Quantity or count | `invoice_qt` |
-| `_vl` | Amount or value | `gross_amount_vl` |
-| `_pc` | Percentage | `occupancy_pc` |
+| `_qty` | Quantity | `returned_qty` |
+| `_cnt` | Count | `invoice_cnt` |
+| `_amt` | Amount | `gross_amt` |
+| `_pct` | Percentage | `occupancy_pct` |
+| `_ytd`, `_mtd`, `_qtd` | Year-, month- or quarter-to-date measure | `revenue_ytd`, `spend_mtd` |
+| `_utc` | Coordinated Universal Time | `created_at_utc` |
+| `_url`, `_uri` | URL or URI | `landing_page_url`, `avatar_uri` |
+| `_ip` | IP address | `client_ip`, `signup_ip_address` |
+| `_os` | Operating system | `device_os`, `os_version` |
+| `_geo`, `_lat`, `_lon` | Geographic value, latitude or longitude | `store_geo`, `store_lat`, `store_lon` |
+
+Use `_sk` for generated warehouse keys and `_id` for natural or source identifiers. Avoid `pk`/`fk` when `_id` or `_sk` already identifies the key role.
+
+Use `avg_`, `min_` and `max_` prefixes for summary statistics. Use `_amount` or `_count` instead of `_amt` or `_cnt` when readability matters more than brevity.
 
 ### Surrogate keys
 
-Strategy `md5_hex`, set in `includes/keys.js` because <why it fits this system>. `keys.surrogate("id")` generates `coalesce(to_hex(md5(cast(id as string))), to_hex(md5('nd')))`, computed once in L1.
+Strategy `md5_hex`, set in `includes/keys.js` because <why it fits this system>. `keys.surrogate("id")` generates `coalesce(to_hex(md5(cast(id as string))), to_hex(md5('nd')))` for a warehouse `_sk`, computed once in L1.
 
 ### Sentinel values
 
@@ -115,7 +127,7 @@ Strategy `md5_hex`, set in `includes/keys.js` because <why it fits this system>.
 
 | Where | Id | Meaning |
 | --- | --- | --- |
-| `includes/constants.js` `excluded_customer_cds` | `900001`, `900002` | ERP test and training customers, excluded from `dim_customer` |
+| `includes/constants.js` `excluded_customer_nums` | `900001`, `900002` | ERP test and training customers, excluded from `dim_customer` |
 
 ## 6. Calendar and period flags
 
@@ -135,9 +147,9 @@ Strategy `md5_hex`, set in `includes/keys.js` because <why it fits this system>.
 
 | Column | Meaning |
 | --- | --- |
-| `gross_amount_vl` | Invoice total including VAT; negative for credit notes |
-| `net_amount_vl` | Invoice total excluding VAT |
-| `open_amount_vl` | Amount not yet paid |
+| `gross_amt` | Invoice total including VAT; negative for credit notes |
+| `net_amt` | Invoice total excluding VAT |
+| `open_amt` | Amount not yet paid |
 
 ## 8. L2 object catalogue
 
@@ -147,7 +159,7 @@ Types: **V** view, **T** table, **I** incremental.
 
 | Object | Type | Grain | Description |
 | --- | --- | --- | --- |
-| dim_customer | V | Customer | ERP customers with code, name, country and activity flag, plus the `na` row |
+| dim_customer | V | Customer | ERP customers with customer number, name, country and activity flag, plus the `na` row |
 
 ### `l2_sales`
 

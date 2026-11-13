@@ -14,16 +14,15 @@
 
 ## 1. Choosing a key strategy
 
-Surrogate keys decouple the warehouse from source keys. They integrate several sources into one key space, survive a source re-keying, and keep raw ids out of presentation. *How* to compute them depends on the system, so there is no single right answer. Choose once per repository, before the first model, and record the choice in `includes/keys.js` and CLAUDE.md.
+Surrogate keys decouple the warehouse from source keys. They integrate several sources into one key space and survive a source re-keying. In L2, natural/source identifiers end in `_id`; warehouse-generated keys end in `_sk` and are hashed or otherwise generated according to the repository's strategy. *How* to generate them depends on the system, so there is no single right answer. Choose once per repository, before the first model, and record the choice in `includes/keys.js` and CLAUDE.md.
 
-**An existing repository keeps the strategy it already uses**, often `to_hex(md5(...))` written inline. Changing it changes every key downstream, which breaks every L3P target and anything that stored keys.
+**A repository already using hashed keys keeps its current hash strategy**, often `to_hex(md5(...))` written inline. Changing it changes every key downstream, which breaks every L3P target and anything that stored keys.
 
 | Strategy | Generated SQL | Type | Strengths | Weaknesses |
 | --- | --- | --- | --- | --- |
 | `md5_hex` | `to_hex(md5(cast(x as string)))` | STRING, 32 chars | Portable: Postgres (`md5()`), Python (`hashlib`), Java and Spark compute the same key, so apps and other databases can produce or check keys. 128 bits make collisions negligible | Four times wider than INT64: more storage, slower joins, larger BI models |
 | `farm_fingerprint` | `farm_fingerprint(cast(x as string))` | INT64 | BigQuery-native, with the smallest storage and fastest joins. Integer relationships compress best in Power BI and Analysis Services import models. Matches Kimball's preference for integer keys | Hard to reproduce outside BigQuery. 64 bits: the chance of any collision is about n²/2⁶⁵, roughly 1 in 37 million at 1 million members and 1 in 3,700 at 100 million. Keys can be negative |
 | `sha256_hex` | `to_hex(sha256(cast(x as string)))` | STRING, 64 chars | Meets security policies that ban MD5 | The widest key |
-| `natural` | `cast(x as string)` | STRING | Simplest, and readable | Exposes raw ids to consumers, breaks when the source re-keys, and still needs namespacing when sources overlap |
 
 Choose by what the system does with its keys:
 
@@ -33,11 +32,10 @@ Choose by what the system does with its keys:
 | Keeps keys inside BigQuery and its BI tool, especially Power BI or Looker import models over large facts | `farm_fingerprint` |
 | Has key spaces that can exceed about 100 million members (events, sessions, devices) | `md5_hex`, or `farm_fingerprint` with a `uniqueKey` assertion and an explicitly accepted collision risk |
 | Must follow a policy that bans MD5, or needs pseudonymous keys | `sha256_hex`, with a secret salt prefix for pseudonymization. An unsalted hash of a low-entropy id, such as a customer number, can be reversed by brute force, so hashing alone isn't anonymization |
-| Is a small, single-source project whose ids are stable, meaningless and not sensitive | `natural` |
 
 Notes:
 
-- **Decouple L3P when you can.** If apps shouldn't depend on warehouse keys at all, expose business codes (`customer_cd`) in L3P. The internal strategy then stays free to change.
+- **Decouple L3P when you can.** If apps shouldn't depend on warehouse keys at all, expose business identifiers or codes (`customer_num`, `country_cd`) in L3P. The internal strategy then stays free to change.
 - **Use one strategy per repository.** With mixed strategies, joins fail on type mismatches (STRING against INT64), or silently match nothing because the same entity gets different keys.
 - **Classic sequence keys (1, 2, 3 …)** need a persisted key map, because BigQuery has no sequences and `row_number()` renumbers on every rebuild. Use them only when a consumer demands small sequential integers: keep an incremental `key_map_<entity>` table that assigns each new business key `max(key) + row_number()` exactly once, and join to it.
 - **When the system's needs are unclear** (who consumes the keys, which BI tool reads them, how big the key spaces get), ask before choosing. This decision is expensive to change.
@@ -48,27 +46,27 @@ The template project ships `includes/keys.js`. Its `STRATEGY` constant holds the
 
 ```sqlx
 -- L1: key the primary key and every foreign key once
-, ${keys.surrogate("id")}           as invoice_id
-, ${keys.surrogate("customer_ref")} as customer_id
+, ${keys.surrogate("id")}           as invoice_sk
+, ${keys.surrogate("customer_ref")} as customer_sk
 
 -- L2: fall back to the unknown member when a lookup fails
-, coalesce(dim_customer.customer_id, ${keys.unknown()}) as customer_id
+, coalesce(dim_customer.customer_sk, ${keys.unknown()}) as customer_sk
 
 -- composite or namespaced keys
-, ${keys.composite("'entity_a'", "invoice.id")} as invoice_id
+, ${keys.composite("'entity_a'", "invoice.id")} as invoice_sk
 ```
 
 What the calls generate:
 
-| Call | `md5_hex` | `farm_fingerprint` | `natural` |
+| Call | `md5_hex` | `farm_fingerprint` | `sha256_hex` |
 | --- | --- | --- | --- |
-| `keys.surrogate("id")` | `coalesce(to_hex(md5(cast(id as string))), to_hex(md5('nd')))` | `coalesce(farm_fingerprint(cast(id as string)), -2)` | `coalesce(cast(id as string), 'nd')` |
-| `keys.composite("a", "b")` | `to_hex(md5(concat(coalesce(cast(a as string), 'na'), '\|', coalesce(cast(b as string), 'na'))))` | the same `concat`, wrapped in `farm_fingerprint` | the `concat` itself |
-| `keys.unknown()` | `to_hex(md5('na'))` | `-1` | `'na'` |
-| `keys.noData()` | `to_hex(md5('nd'))` | `-2` | `'nd'` |
+| `keys.surrogate("id")` | `coalesce(to_hex(md5(cast(id as string))), to_hex(md5('nd')))` | `coalesce(farm_fingerprint(cast(id as string)), -2)` | `coalesce(to_hex(sha256(cast(id as string))), to_hex(sha256('nd')))` |
+| `keys.composite("a", "b")` | `to_hex(md5(concat(coalesce(cast(a as string), 'na'), '\|', coalesce(cast(b as string), 'na'))))` | the same `concat`, wrapped in `farm_fingerprint` | the same `concat`, wrapped in `to_hex(sha256(...))` |
+| `keys.unknown()` | `to_hex(md5('na'))` | `-1` | `to_hex(sha256('na'))` |
+| `keys.noData()` | `to_hex(md5('nd'))` | `-2` | `to_hex(sha256('nd'))` |
 | `keys.type()` | `string` | `int64` | `string` |
 
-`sha256_hex` matches `md5_hex`, with `sha256` in place of `md5`. INT64 keys use Kimball's conventional `-1` and `-2` for the sentinels.
+INT64 keys use Kimball's conventional `-1` and `-2` for the sentinels.
 
 In a repository without the helper, follow its inline formula exactly. The rules below apply either way.
 
@@ -98,8 +96,9 @@ Every dimension carries exactly one "not assigned" row:
 ```sql
 , final as (
   select
-    customer.customer_id
-    , customer.customer_cd
+    customer.customer_sk
+    , customer.customer_id
+    , customer.customer_num
     , customer.customer_ds
     , customer.active_fl
   from l1_erp_customer as customer
@@ -107,8 +106,9 @@ Every dimension carries exactly one "not assigned" row:
   union all strict corresponding
 
   select
-    ${keys.unknown()} as customer_id
-    , 'na'            as customer_cd
+    ${keys.unknown()} as customer_sk
+    , null            as customer_id
+    , 'na'            as customer_num
     , 'Not Assigned'  as customer_ds
     , false           as active_fl
 )
@@ -118,7 +118,7 @@ Every dimension carries exactly one "not assigned" row:
 - Facts coalesce every foreign key to the unknown key. An `inner join` from a fact to a dimension then drops no rows, the totals stay complete, and the unknown share appears in reports as "Not Assigned" instead of disappearing.
 - Use fixed sentinel values: `'Not Assigned'` or `'na'` for strings, `date '0001-01-01'` or `date '9999-12-31'` for open-ended dates, `false` for flags, NULL for measures. Never `current_date()`.
 - Use one label across the whole repository (`'Not Assigned'`, or a translation of it). To change it, change every model at once.
-- L3P filters the sentinel out (`where customer_id != ${keys.unknown()}`), because target programs don't know the warehouse's placeholders. L3R keeps it, so people see the unassigned bucket.
+- L3P filters the sentinel out (`where customer_sk != ${keys.unknown()}`), because target programs don't know the warehouse's placeholders. L3R keeps it, so people see the unassigned bucket.
 
 For a wide dimension, a typed sentinel saves you from listing every column:
 
@@ -127,7 +127,7 @@ For a wide dimension, a typed sentinel saves you from listing every column:
   -- left join on false yields one all-NULL row with the column types of final
   select
     final.* replace (
-      ${keys.unknown()} as customer_id
+      ${keys.unknown()} as customer_sk
       , 'Not Assigned'  as customer_ds
       , false           as active_fl
     )
@@ -165,43 +165,43 @@ The dimension generates the default for every parent:
 ```sql
 -- every customer and year gets a default sector 0, even when the source lists no sectors at all
 , all_sectors as (
-  select customer_id, year_nr, office_cd, 0 as sector_cd   -- generated default
+  select customer_sk, year_num, office_cd, 0 as sector_cd   -- generated default
   from customer_years
   union distinct
-  select customer_id, year_nr, office_cd, sector_cd        -- sectors listed by the source
+  select customer_sk, year_num, office_cd, sector_cd        -- sectors listed by the source
   from source_sectors
 )
 
 , final as (
   select
-    ${keys.composite("all_sectors.customer_id", "all_sectors.year_nr", "all_sectors.office_cd", "all_sectors.sector_cd")} as sector_id
-    , all_sectors.customer_id
-    , all_sectors.year_nr
+    ${keys.composite("all_sectors.customer_sk", "all_sectors.year_num", "all_sectors.office_cd", "all_sectors.sector_cd")} as sector_sk
+    , all_sectors.customer_sk
+    , all_sectors.year_num
     , all_sectors.office_cd
     , all_sectors.sector_cd
     , coalesce(source_sectors.sector_ds, 'Default')             as sector_ds
     , count(*) over (
-      partition by all_sectors.customer_id, all_sectors.year_nr, all_sectors.office_cd
+      partition by all_sectors.customer_sk, all_sectors.year_num, all_sectors.office_cd
     ) = 1                                                       as single_sector_fl
   from all_sectors
   left outer join source_sectors
-    using (customer_id, year_nr, office_cd, sector_cd)
+    using (customer_sk, year_num, office_cd, sector_cd)
 )
 ```
 
 The fact falls back to the parent's default before it falls back to the global sentinel:
 
 ```sql
-, coalesce(dim_sector.sector_id, dim_sector_default.sector_id, ${keys.unknown()}) as sector_id
+, coalesce(dim_sector.sector_sk, dim_sector_default.sector_sk, ${keys.unknown()}) as sector_sk
 -- ...
 left outer join l2_finance_dim_sector as dim_sector
-  on fct.customer_id = dim_sector.customer_id
-  and fct.year_nr = dim_sector.year_nr
+  on fct.customer_sk = dim_sector.customer_sk
+  and fct.year_num = dim_sector.year_num
   and fct.office_cd = dim_sector.office_cd
   and fct.sector_cd = dim_sector.sector_cd
 left outer join l2_finance_dim_sector as dim_sector_default
-  on fct.customer_id = dim_sector_default.customer_id
-  and fct.year_nr = dim_sector_default.year_nr
+  on fct.customer_sk = dim_sector_default.customer_sk
+  and fct.year_num = dim_sector_default.year_num
   and fct.office_cd = dim_sector_default.office_cd
   and dim_sector_default.sector_cd = 0
 ```
@@ -234,9 +234,9 @@ Rules:
 ```sql
 from l1_erp_invoice as invoice
 left outer join l2_masterdata_dim_customer as dim_customer
-  on invoice.customer_id = dim_customer.customer_id
+  on invoice.customer_sk = dim_customer.customer_sk
 -- in the select list:
-, coalesce(dim_customer.customer_id, ${keys.unknown()}) as customer_id
+, coalesce(dim_customer.customer_sk, ${keys.unknown()}) as customer_sk
 ```
 
 Use a `left outer join` while building the fact and coalesce on the way out. Downstream models, L3 and BI can then use inner joins safely.

@@ -3,7 +3,7 @@ config {
   schema: "l2_masterdata",
   name: "dim_customer",
   assertions: {
-    uniqueKey: ["customer_id"]
+    uniqueKey: ["customer_sk"]
   }
 }
 
@@ -15,14 +15,14 @@ l1_erp_customer as (
   select *
   from ${ref({schema: 'l1_erp', name: 'customer'})}
   -- test and training customers are listed, with the reason, in includes/constants.js
-  where coalesce(number, '') not in unnest(${helpers.stringArray(constants.excluded_customer_cds)})
+  where coalesce(number, '') not in unnest(${helpers.stringArray(constants.excluded_customer_nums)})
 )
 
 , final as (
   select
-    customer.customer_id
-    , customer.id                                   as source_customer_id
-    , customer.number                               as customer_cd
+    customer.customer_sk
+    , customer.id                                   as customer_id
+    , customer.number                               as customer_num
     , customer.name                                 as customer_ds
     , concat(customer.number, ' - ', customer.name) as customer_long_ds
     , coalesce(customer.country_code, 'na')         as country_cd
@@ -35,9 +35,9 @@ l1_erp_customer as (
   union all strict corresponding
 
   select
-    ${keys.unknown()}                 as customer_id
-    , null                            as source_customer_id
-    , 'na'                            as customer_cd
+    ${keys.unknown()}                 as customer_sk
+    , null                            as customer_id
+    , 'na'                            as customer_num
     , 'Not Assigned'                  as customer_ds
     , 'na - Not Assigned'             as customer_long_ds
     , 'na'                            as country_cd

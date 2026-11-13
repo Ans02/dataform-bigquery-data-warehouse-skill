@@ -21,7 +21,12 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
-SUFFIXES = ("_id", "_cd", "_ds", "_dt", "_fl", "_nr", "_qt", "_vl", "_pc")
+SUFFIXES = (
+    "_id", "_sk", "_cd", "_ds", "_dt", "_fl", "_num", "_qty", "_cnt", "_count", "_amt",
+    "_amount", "_pct", "_ytd", "_mtd", "_qtd", "_utc", "_url", "_uri", "_ip", "_os",
+    "_geo", "_lat", "_lon",
+)
+PREFIXES = ("avg_", "min_", "max_")
 KINDS = ("dim", "fct", "rel", "kpi")
 SQL_TYPES = {
     "string", "int64", "int", "integer", "smallint", "bigint", "tinyint", "byteint", "numeric",
@@ -35,7 +40,7 @@ UNKNOWN_KEY_EXPR = (
     r"|(?:to_hex\(\s*)?(?:md5|sha256|farm_fingerprint)\(\s*(?:cast\(\s*)?['\"]na['\"](?:\s+as\s+string\s*\))?\s*\)\s*\)?"
     r"|-1|'na')"
 )
-SENTINEL_RE = re.compile(r"\bunion\b[\s\S]*?" + UNKNOWN_KEY_EXPR + r"\s+as\s+\w*_id\b", re.I)
+SENTINEL_RE = re.compile(r"\bunion\b[\s\S]*?" + UNKNOWN_KEY_EXPR + r"\s+as\s+\w*_sk\b", re.I)
 TYPED_SENTINEL_RE = re.compile(r"\bjoin\s+\w+(?:\s+as\s+\w+)?\s+on\s+false\b", re.I)
 GRAIN_RE = re.compile(r"(--|//|/\*|description\s*:)[^\n]*\bgrain\b", re.I)
 REF_OBJ_RE = re.compile(r"ref\(\s*\{(.*?)\}\s*\)", re.S)
@@ -86,6 +91,11 @@ def balanced_block(text: str, brace_pos: int) -> tuple[str, int]:
 def strip_js_comments(text: str) -> str:
     text = re.sub(r"/\*.*?\*/", " ", text, flags=re.S)
     return re.sub(r"(?<![:\"'])//[^\n]*", " ", text)
+
+
+def valid_column_name(name: str) -> bool:
+    lowered = name.lower()
+    return lowered.endswith(SUFFIXES) or lowered.startswith(PREFIXES)
 
 
 def parse_model(path: Path, root: Path) -> dict:
@@ -156,8 +166,11 @@ def parse_model(path: Path, root: Path) -> dict:
         "generates_dates": "generate_date_array" in sql.lower(),
         "refs": sorted(set(refs)),
         "aliases": aliases,
-        "bad_aliases": sorted({a for a in aliases if not a.lower().endswith(SUFFIXES)}),
-        "measures": sorted({a for a in aliases if a.lower().endswith(("_vl", "_qt", "_pc"))}),
+        "bad_aliases": sorted({a for a in aliases if not valid_column_name(a)}),
+        "measures": sorted({
+            a for a in aliases
+            if a.lower().endswith(("_qty", "_cnt", "_count", "_amt", "_amount", "_pct", "_ytd", "_mtd", "_qtd"))
+        }),
     }
 
 
@@ -215,7 +228,7 @@ def scan(root: Path) -> dict:
 
     # R13 naming
     all_aliases = [a for m in scored for a in m["aliases"]]
-    bad_aliases = [a for a in all_aliases if not a.lower().endswith(SUFFIXES)]
+    bad_aliases = [a for a in all_aliases if not valid_column_name(a)]
     alias_pct = pct(len(all_aliases) - len(bad_aliases), len(all_aliases))
     prefix_pct = pct(len(l2_typed), len(l2))
 

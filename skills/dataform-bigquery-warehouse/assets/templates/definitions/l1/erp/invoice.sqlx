@@ -5,12 +5,12 @@ config {
 }
 
 -- Source-aligned copy of the ERP invoice table. The foreign key is keyed exactly like the
--- customer's primary key in l1_erp.customer, so L2 can join on customer_id directly.
+-- customer's surrogate key in l1_erp.customer, so L2 can join on customer_sk directly.
 
 select
   id
-  , ${keys.surrogate("id")}           as invoice_id
-  , ${keys.surrogate("customer_ref")} as customer_id
+  , ${keys.surrogate("id")}           as invoice_sk
+  , ${keys.surrogate("customer_ref")} as customer_sk
   , document_number
   , cast(document_date as date)       as document_date
   , document_type

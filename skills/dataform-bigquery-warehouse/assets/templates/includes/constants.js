@@ -3,8 +3,8 @@
 // instead of scattering literals across models.
 
 // Test and training customers created in the ERP; never part of reporting.
-const excluded_customer_cds = ["900001", "900002"];
+const excluded_customer_nums = ["900001", "900002"];
 
 module.exports = {
-  excluded_customer_cds
+  excluded_customer_nums
 };

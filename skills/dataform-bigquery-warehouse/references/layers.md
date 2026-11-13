@@ -45,7 +45,7 @@ Allowed:
 
 - choosing columns (keep everything plausibly useful, drop loader noise);
 - casting types: `cast(x as timestamp)`, `parse_date('%Y%m%d', file_date)`;
-- keying the primary key and every foreign key into `_id` columns, once, with the repository's key strategy, so that every L2 model agrees on them (keys-and-sentinels.md);
+- in L2, preserving source identifiers as `_id` and keying warehouse primary and foreign keys into `_sk` columns once, with the repository's key strategy, so that every L2 model agrees on them (keys-and-sentinels.md);
 - source-local cleanup: lowercasing emails, `nullif(x, '.')` for placeholder values, unnesting the source's own repeated fields;
 - load metadata: `_FILE_NAME` of external tables, import timestamps;
 - documented cut-offs: `where fiscal_year > 2022 -- earlier extracts are unreliable`;

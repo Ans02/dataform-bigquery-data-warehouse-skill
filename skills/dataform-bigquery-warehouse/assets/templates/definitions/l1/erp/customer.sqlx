@@ -10,7 +10,7 @@ config {
 
 select
   id
-  , ${keys.surrogate("id")}             as customer_id
+  , ${keys.surrogate("id")}             as customer_sk
   , cast(number as string)              as number
   , name
   , status

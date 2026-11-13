@@ -82,7 +82,7 @@ The plugin ships a commit hook that enforces this when Claude commits. It blocks
 - One term, code or object per row. Give its column, model or code in backticks, so people can search for it.
 - Business terms: give the source-language term, its language, the English word used in column names, and a note on where it appears (`dim_branch`, `branch_cd`).
 - Codes: give every value with its meaning, and the model that decodes it. When the SQL maps unknown values to a fallback (`else 'Not Assigned'`), say so.
-- Measures: give the meaning, the source field, the unit, and the sign (credit notes negative?). If a column's suffix contradicts its content (a `_qt` column holding money), the column also goes in §10.
+- Measures: give the meaning, the source field, the unit, and the sign (credit notes negative?). If a column's suffix contradicts its content (an `_amt` column holding a count), the column also goes in §10.
 - Objects: give the type, the grain in a few words, and a one-line description. Use the grain from the model's header comment.
 - Pitfalls: say where, what the name suggests, and what the SQL actually does. Date the section ("as of <date>").
 - Write for a newcomer: short sentences and no unexplained abbreviations. Business-unit jargon goes in §4, not in the descriptions.

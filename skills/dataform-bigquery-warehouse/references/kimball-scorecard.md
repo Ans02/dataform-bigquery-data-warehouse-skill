@@ -54,7 +54,7 @@ The scope is the L2 models plus the L3R presentation views. L3P tables are machi
 | R3 | Conformed dimensions | Enterprise bus architecture: one dimension per entity, shared by every fact; shrunken dimensions keep the keys | 3 | No entity is modeled as independent dimensions in several schemas. Copies derived from `l2_masterdata` are fine | proposed |
 | R4 | Unknown-member rows | Default rows, so that fact foreign keys never need NULL | 2 | ≥ 90% of dimensions have a global `na` row. A scoped default member (such as sector 0 "Default") doesn't replace it: facts with an unknown parent still need `na` | auto |
 | R5 | Fact foreign keys never null | Every fact row joins to every dimension | 3 | In the sampled facts, every foreign key is coalesced to the unknown member, and a query shows no NULL keys | review |
-| R6 | Surrogate keys | Dimensions use meaningless surrogate keys; natural keys stay as attributes | 2 | One key strategy across the repository, fitting the system. Every sampled dimension has a surrogate `_id` key and keeps its business key (`_cd`, `source_*_id`); facts carry only surrogate keys | review |
+| R6 | Surrogate keys | Dimensions use meaningless surrogate keys; natural keys stay as attributes | 2 | One key strategy across the repository, fitting the system. Every sampled dimension has a hashed `_sk` key and keeps its natural/source key (`_id` or `_cd`); facts carry surrogate `_sk` keys | review |
 | R7 | One conformed date dimension | A single date dimension; role-playing views for several dates | 2 | Exactly one calendar generates dates; fiscal and unit calendars are derived from it | auto |
 | R8 | Fact types and additivity | Transaction, periodic snapshot, accumulating snapshot or factless; additive, semi-additive and non-additive measures | 2 | Every sampled fact is a single type, stated in its header; semi- and non-additive measures (balances, ratios) are documented, and ratios are stored as numerator and denominator | review |
 | R9 | Aggregates on atomic facts | Aggregates complement the atomic grain; they never replace it | 2 | Every `kpi_` model is built from a `fct_` model | auto |
@@ -81,7 +81,7 @@ Use these to score a single model in a review. Score only the criteria that appl
 | M5 | Foreign keys never null | fct, rel | 3 | Every foreign key is coalesced to the unknown member |
 | M6 | Fact type and additivity | fct, kpi | 2 | The header states the fact type; non-additive measures are flagged, and ratios are stored as their parts |
 | M7 | Lean facts | fct | 1 | Only keys, measures and degenerate dimensions (document numbers); descriptive text lives in dimensions |
-| M8 | Keys and unknown row | dim | 3 | A surrogate `_id` key, the natural key kept as an attribute, and a global `na` row |
+| M8 | Keys and unknown row | dim | 3 | A surrogate `_sk` key, the natural/source `_id` kept as an attribute, and a global `na` row |
 | M9 | Descriptive attributes | dim | 2 | Codes are decoded into `_ds` labels, `_long_ds` exists for pickers, and hierarchy levels are flattened into columns |
 | M10 | Conformed | dim | 3 | It is the hub dimension, or derived from it with the same keys |
 | M11 | SCD policy | dim | 1 | The header says which attributes keep history (type 2) and which are overwritten (type 1) |
@@ -98,7 +98,7 @@ Critical for the gate: M1, M2, M3, M5, M8 and M10.
 | --- | --- |
 | Four-step design: business process, grain, dimensions, facts | The schema of the owning business unit, the grain comment, `dim_` and `fct_` models |
 | Bus architecture, conformed dimensions | The `l2_masterdata` hub; the scan's bus matrix |
-| Surrogate keys | `_id` keys from one strategy per repository (`includes/keys.js`). `farm_fingerprint` gives Kimball's integer keys; `md5_hex` trades width for portability when keys leave BigQuery |
+| Surrogate keys | Hashed `_sk` keys from one strategy per repository (`includes/keys.js`). `farm_fingerprint` gives Kimball's integer keys; `md5_hex` trades width for portability when keys leave BigQuery |
 | Unknown and default members | The `na` sentinel row; scoped default members (keys-and-sentinels.md) |
 | Bridge tables with weighting factors | `rel_` models with a `percent` weight and an assertion |
 | Aggregate fact tables | `kpi_` models |
